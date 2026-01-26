@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <stdio.h>
+#include <string.h>
 
 // put function declarations here:
 int myFunction(int, int);
@@ -15,4 +17,8 @@ void loop() {
 // put function definitions here:
 int myFunction(int x, int y) {
   return x + y;
+}
+
+std::string hinFunction() {
+  return "Hin!";
 }
