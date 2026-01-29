@@ -1,9 +1,13 @@
 #include <Arduino.h>
+#include <WiFi.h>
+#include <WebServer.h>
 #include "motors.hpp"
 #include "sensors.hpp"
 #include "constants.hpp"
+#include "web_server.hpp"
 
 Sensors sensors(A0);
+WebServer server(80);
 
 auto fan1 = MotorController(5, 0); // create motor controller: pin 5, channel 0: fan 1
 auto fan2 = MotorController(6, 1); // create motor controller: pin 6, channel 1: fan 2
@@ -11,14 +15,38 @@ auto water_pump = MotorController(7, 2); // create motor controller: pin 7, chan
 
 void setup() {
     Serial.begin(115200); // initialize serial communication
+    
+    // Connect to WiFi
+    Serial.println("Connecting to WiFi...");
+    WiFi.begin(Config::WIFI_SSID, Config::WIFI_PASSWORD);
+    
+    unsigned long startTime = millis();
+    while (WiFi.status() != WL_CONNECTED && 
+           millis() - startTime < Config::WIFI_TIMEOUT_MS) {
+        delay(500);
+        Serial.print(".");
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nWiFi connected!");
+        Serial.print("IP address: ");
+        Serial.println(WiFi.localIP());
+    } else {
+        Serial.println("\nWiFi connection failed!");
+    }
+    
     sensors.begin(); // initialize sensors
     fan1.begin(); // initialize motor controller
     fan2.begin(); // initialize motor controller
     water_pump.begin(); // initialize motor controller
+    setupWebServer(server, sensors, fan1, fan2, water_pump); // setup web server routes
 }
 
 void loop() {
-    // put your main code here, to run repeatedly:
+    // Handle web server requests
+    server.handleClient();
+    
+    // Read sensor data
     float humidity = sensors.readHumidity();
     float temperature = sensors.readTemperature();
     float moisture = sensors.readMoisture();
