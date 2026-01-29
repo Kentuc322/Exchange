@@ -1,4 +1,5 @@
 #include <Adafruit_AHTX0.h>
+#include <Wire.h>
 #include "sensors.hpp"
 
 
@@ -10,12 +11,12 @@ private:
 public:
     Sensors() : aht() {}
 
-    void begin(int moist) {
+    void begin(int moi) {
         if (!aht.begin()) {
             // Handle sensor initialization failure
-            while (1);
+            while (1); delay(10);
         }
-        moist = moist;
+        moist = moi;
         pinMode(moist, INPUT);
     }
 
