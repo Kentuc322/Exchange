@@ -10,6 +10,7 @@ auto fan2 = MotorController(6, 1); // create motor controller: pin 6, channel 1:
 auto water_pump = MotorController(7, 2); // create motor controller: pin 7, channel 2: water pump
 
 void setup() {
+    Serial.begin(115200); // initialize serial communication
     sensors.begin(); // initialize sensors
     fan1.begin(); // initialize motor controller
     fan2.begin(); // initialize motor controller
