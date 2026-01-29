@@ -5,9 +5,10 @@
 class Sensors {
 private:
     Adafruit_AHTX0 aht;
+    int moisturePin;
 public:
-    Sensors();
-    void begin(int moist);
+    Sensors(int moistPin);
+    void begin();
     float readHumidity();
     float readTemperature();
     float readMoisture();

@@ -3,14 +3,14 @@
 #include "sensors.hpp"
 #include "constants.hpp"
 
-Sensors sensors;
+Sensors sensors(A0);
 
 auto fan1 = MotorController(5, 0); // create motor controller: pin 5, channel 0: fan 1
 auto fan2 = MotorController(6, 1); // create motor controller: pin 6, channel 1: fan 2
 auto water_pump = MotorController(7, 2); // create motor controller: pin 7, channel 2: water pump
 
 void setup() {
-    sensors.begin(A0); // initialize sensors with moisture sensor pin A0
+    sensors.begin(); // initialize sensors
     fan1.begin(); // initialize motor controller
     fan2.begin(); // initialize motor controller
     water_pump.begin(); // initialize motor controller
