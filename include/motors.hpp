@@ -1,5 +1,4 @@
-#ifndef MOTORS_H
-#define MOTORS_H
+#pragma once
 
 #include <Arduino.h>
 
@@ -26,5 +25,3 @@ private:
     const double _freq = 5000.0; // PWM周波数 (5kHz)
     const uint8_t _resolution = 8; // 分解能 (8bit = 0-255)
 };
-
-#endif

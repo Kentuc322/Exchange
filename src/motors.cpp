@@ -2,10 +2,8 @@
 #include <Arduino.h>
 
 // コンストラクタ
-MotorController::MotorController(uint8_t pin, uint8_t channel) {
-    _pin = pin;
-    _channel = channel;
-}
+MotorController::MotorController(uint8_t pin, uint8_t channel) 
+    : _pin(pin), _channel(channel) {}
 
 // 初期化：ピンの設定とPWMの割り当て
 void MotorController::begin() {
