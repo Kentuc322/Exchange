@@ -11,4 +11,8 @@ namespace Config {
     constexpr int WATER_PUMP_PIN = 7;
 
     constexpr int MOISTURE_SENSOR_PIN = A0;
+
+    constexpr float HUMIDITY_THRESHOLD = 70.0; // Example threshold
+    constexpr float TEMP_THRESHOLD = 30.0; // Example threshold
+    constexpr int SOIL_THRESHOLD = 500; // Example threshold
 };
