@@ -1,9 +1,12 @@
 #include <Arduino.h>
+#include <WebServer.h>
 #include "motors.hpp"
 #include "sensors.hpp"
 #include "constants.hpp"
+#include "web_server.hpp"
 
 Sensors sensors(A0);
+WebServer server(80);
 
 auto fan1 = MotorController(5, 0); // create motor controller: pin 5, channel 0: fan 1
 auto fan2 = MotorController(6, 1); // create motor controller: pin 6, channel 1: fan 2
@@ -15,6 +18,8 @@ void setup() {
     fan1.begin(); // initialize motor controller
     fan2.begin(); // initialize motor controller
     water_pump.begin(); // initialize motor controller
+    setupWebServer(server); // setup web server routes
+    server.begin(); // start web server
 }
 
 void loop() {
