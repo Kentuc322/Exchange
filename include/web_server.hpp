@@ -4,4 +4,14 @@
 #include <WebServer.h>
 #include <WiFi.h>
 
-void setupWebServer(WebServer &server);
+// Forward declarations
+class Sensors;
+class MotorController;
+
+void setupWebServer(
+    WebServer &server, 
+    Sensors &sensors,
+    MotorController &fan1,
+    MotorController &fan2,
+    MotorController &waterPump
+);
