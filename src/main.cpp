@@ -9,9 +9,9 @@
 Sensors sensors(A0);
 WebServer server(80);
 
-auto fan1 = MotorController(5, 0); // create motor controller: pin 5, channel 0: fan 1
-auto fan2 = MotorController(6, 1); // create motor controller: pin 6, channel 1: fan 2
-auto water_pump = MotorController(7, 2); // create motor controller: pin 7, channel 2: water pump
+auto fan1 = MotorController(Config::FAN1_PIN, Config::FAN1_CHANNEL); // create motor controller: pin 5, channel 0: fan 1
+auto fan2 = MotorController(Config::FAN2_PIN, Config::FAN2_CHANNEL); // create motor controller: pin 6, channel 1: fan 2
+auto water_pump = MotorController(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL); // create motor controller: pin 7, channel 2: water pump
 
 void setup() {
     Serial.begin(115200); // initialize serial communication
