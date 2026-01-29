@@ -1,4 +1,5 @@
 #include <Adafruit_AHTX0.h>
+#include "sensors.hpp"
 
 
 class Sensors {

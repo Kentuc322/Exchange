@@ -1,13 +1,16 @@
 #include <Arduino.h>
 #include "motors.hpp"
+#include "sensors.hpp"
 
 void setup() {
-    auto motor1 = MotorController(5, 0); // ピン5、チャンネル0のモーターコントローラーを作成
-    auto motor2 = MotorController(6, 1); // ピン6、チャンネル1のモーターコントローラーを作成
-    auto motor3 = MotorController(7, 2); // ピン7、チャンネル2のモーターコントローラーを作成
-    motor1.begin(); // モーターコントローラーの初期化
-    motor2.begin(); // モーターコントローラーの初期化
-    motor3.begin(); // モーターコントローラーの初期化
+    Sensors sensors;
+    sensors.begin(A0); // initialize sensors with moisture sensor pin A0
+    auto motor1 = MotorController(5, 0); // create motor controller: pin 5, channel 0
+    auto motor2 = MotorController(6, 1); // create motor controller: pin 6, channel 1
+    auto motor3 = MotorController(7, 2); // create motor controller: pin 7, channel 2
+    motor1.begin(); // initialize motor controller
+    motor2.begin(); // initialize motor controller
+    motor3.begin(); // initialize motor controller
 }
 
 void loop() {
