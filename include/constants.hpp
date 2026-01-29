@@ -17,7 +17,7 @@ namespace Config {
     constexpr int SOIL_THRESHOLD = 500; // Example threshold
 
     // WiFi settings
-    constexpr const char* WIFI_SSID = "YOUR_WIFI_SSID";
-    constexpr const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+    constexpr const char* WIFI_SSID = "WateringRobotNetwork";
+    constexpr const char* WIFI_PASSWORD = "SecurePass123";
     constexpr int WIFI_TIMEOUT_MS = 10000; // 10 seconds
 };
