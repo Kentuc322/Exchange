@@ -11,12 +11,12 @@ void setupWebServer(
     MotorController &fan2,
     MotorController &waterPump
 ) {
-    // ルートハンドラ：HTMLページを返す
+    // root handler: serve the main HTML page
     server.on("/", HTTP_GET, [&server]() {
         server.send_P(200, "text/html", index_html);
     });
 
-    // ステータスハンドラ：センサーデータをJSONで返す
+    // status handler: return sensor data as JSON
     server.on("/status", HTTP_GET, [&server, &sensors]() {
         float humidity = sensors.readHumidity();
         float temperature = sensors.readTemperature();
@@ -34,7 +34,7 @@ void setupWebServer(
         server.send(200, "application/json", json);
     });
 
-    // 制御ハンドラ：モーターの制御コマンドを受け取る
+    // control handler: receive control commands for fans and pump
     server.on("/control", HTTP_GET, [&server, &fan1, &fan2, &waterPump]() {
         if (!server.hasArg("device") || !server.hasArg("action")) {
             server.send(400, "text/plain", "Missing parameters");

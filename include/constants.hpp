@@ -19,5 +19,5 @@ namespace Config {
     // WiFi settings
     constexpr const char* WIFI_SSID = "WateringRobotNetwork";
     constexpr const char* WIFI_PASSWORD = "SecurePass123";
-    constexpr int WIFI_TIMEOUT_MS = 10000; // 10 seconds
+    constexpr int WIFI_TIMEOUT_MS = 20000; // 10 seconds
 };

@@ -14,26 +14,16 @@ auto fan2 = MotorController(Config::FAN2_PIN, Config::FAN2_CHANNEL); // create m
 auto water_pump = MotorController(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL); // create motor controller: pin 7, channel 2: water pump
 
 void setup() {
+    delay(3000); // Wait 3 seconds
     Serial.begin(115200); // initialize serial communication
     
     // Connect to WiFi
     Serial.println("Connecting to WiFi...");
-    WiFi.begin(Config::WIFI_SSID, Config::WIFI_PASSWORD);
-    
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED && 
-           millis() - startTime < Config::WIFI_TIMEOUT_MS) {
-        delay(500);
-        Serial.print(".");
-    }
-    
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi connected!");
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
-    } else {
-        Serial.println("\nWiFi connection failed!");
-    }
+    WiFi.softAP(Config::WIFI_SSID, Config::WIFI_PASSWORD);
+    IPAddress IP = WiFi.softAPIP();
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(IP);
     
     sensors.begin(); // initialize sensors
     fan1.begin(); // initialize motor controller
