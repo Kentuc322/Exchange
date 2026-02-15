@@ -87,14 +87,6 @@ const char index_html[] PROGMEM = R"rawliteral()
       </div>
 
       <div class="control-group">
-        <span class="control-label">Fan 2 (Exhaust)</span>
-        <div class="btn-group">
-          <button class="btn-on" onclick="control('fan2', 'fullSpeed')">FULL</button>
-          <button class="btn-off" onclick="control('fan2', 'stop')">STOP</button>
-        </div>
-      </div>
-
-      <div class="control-group">
         <span class="control-label">Water Pump</span>
         <div class="btn-group">
           <button class="btn-on" onclick="control('pump', 'fullSpeed')">POUR</button>

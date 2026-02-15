@@ -12,6 +12,5 @@ void setupWebServer(
     WebServer &server, 
     Sensors &sensors,
     MotorController &fan1,
-    MotorController &fan2,
     MotorController &waterPump
 );

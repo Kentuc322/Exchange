@@ -8,7 +8,6 @@ void setupWebServer(
     WebServer &server,
     Sensors &sensors,
     MotorController &fan1,
-    MotorController &fan2,
     MotorController &waterPump
 ) {
     // root handler: serve the main HTML page
@@ -35,7 +34,7 @@ void setupWebServer(
     });
 
     // control handler: receive control commands for fans and pump
-    server.on("/control", HTTP_GET, [&server, &fan1, &fan2, &waterPump]() {
+    server.on("/control", HTTP_GET, [&server, &fan1, &waterPump]() {
         if (!server.hasArg("device") || !server.hasArg("action")) {
             server.send(400, "text/plain", "Missing parameters");
             return;
@@ -51,14 +50,6 @@ void setupWebServer(
                 success = true;
             } else if (action == "stop") {
                 fan1.stop();
-                success = true;
-            }
-        } else if (device == "fan2") {
-            if (action == "fullSpeed") {
-                fan2.fullSpeed();
-                success = true;
-            } else if (action == "stop") {
-                fan2.stop();
                 success = true;
             }
         } else if (device == "pump") {

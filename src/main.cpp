@@ -10,7 +10,6 @@ Sensors sensors(Config::MOISTURE_SENSOR_PIN);
 WebServer server(80);
 
 MotorController fan1 = MotorController(Config::FAN1_PIN, Config::FAN1_CHANNEL); // create motor controller: pin 5, channel 0: fan 1
-MotorController fan2 = MotorController(Config::FAN2_PIN, Config::FAN2_CHANNEL); // create motor controller: pin 6, channel 1: fan 2
 MotorController water_pump = MotorController(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL); // create motor controller: pin 7, channel 2: water pump
 
 void setup() {
@@ -28,7 +27,7 @@ void setup() {
     Serial.println(IP);
     
     Serial.println("[2/5] Setting up web server...");
-    setupWebServer(server, sensors, fan1, fan2, water_pump); // setup web server routes
+    setupWebServer(server, sensors, fan1, water_pump); // setup web server routes
     Serial.println("  (^_^)  Web server initialized!");
     
     Serial.println("[3/5] Initializing sensors...");
@@ -43,14 +42,6 @@ void setup() {
         Serial.println("  - Fan1 initialized");
     } else {
         Serial.println("  - Fan1 disabled");
-    }
-    
-    if (Config::ENABLE_FAN2) {
-        Serial.println("  - Initializing fan2 (pin 6, channel 1)...");
-        fan2.begin(); // initialize motor controller
-        Serial.println("  - Fan2 initialized");
-    } else {
-        Serial.println("  - Fan2 disabled");
     }
     
     if (Config::ENABLE_WATER_PUMP) {
@@ -103,15 +94,12 @@ void loop() {
     if (sensors.isAHTAvailable() && !isnan(temperature) && !isnan(humidity)) {
         if (temperature > Config::TEMP_THRESHOLD || humidity > Config::HUMIDITY_THRESHOLD) {
             if (Config::ENABLE_FAN1) fan1.fullSpeed();
-            if (Config::ENABLE_FAN2) fan2.fullSpeed();
         } else {
             if (Config::ENABLE_FAN1) fan1.stop();
-            if (Config::ENABLE_FAN2) fan2.stop();
         }
     } else {
         // Keep fans off if no temperature/humidity data
         if (Config::ENABLE_FAN1) fan1.stop();
-        if (Config::ENABLE_FAN2) fan2.stop();
     }
 
     delay(1000);

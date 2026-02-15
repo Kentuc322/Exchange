@@ -4,16 +4,13 @@
 namespace Config {
     // Hardware enable flags - set to false if hardware is not connected
     constexpr bool ENABLE_FAN1 = false;
-    constexpr bool ENABLE_FAN2 = false;
     constexpr bool ENABLE_WATER_PUMP = false;
     constexpr bool ENABLE_AHT_SENSOR = true; // Will be auto-detected anyway
     
     constexpr int FAN1_CHANNEL = 0;
-    constexpr int FAN2_CHANNEL = 1;
     constexpr int WATER_PUMP_CHANNEL = 2;
 
     constexpr int FAN1_PIN = 5;
-    constexpr int FAN2_PIN = 6;
     constexpr int WATER_PUMP_PIN = 7;
 
     constexpr int MOISTURE_SENSOR_PIN = 32;
