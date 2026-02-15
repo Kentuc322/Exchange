@@ -14,7 +14,7 @@ auto fan2 = MotorController(Config::FAN2_PIN, Config::FAN2_CHANNEL); // create m
 auto water_pump = MotorController(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL); // create motor controller: pin 7, channel 2: water pump
 
 void setup() {
-    delay(3000); // Wait 3 seconds
+    delay(5000); // Wait 3 seconds
     Serial.begin(115200); // initialize serial communication
     
     // Connect to WiFi
@@ -24,12 +24,14 @@ void setup() {
     Serial.println("\nWiFi connected!");
     Serial.print("IP address: ");
     Serial.println(IP);
+    setupWebServer(server, sensors, fan1, fan2, water_pump); // setup web server routes
+    Serial.println("Web server initialized!");
     
     sensors.begin(); // initialize sensors
-    fan1.begin(); // initialize motor controller
-    fan2.begin(); // initialize motor controller
-    water_pump.begin(); // initialize motor controller
-    setupWebServer(server, sensors, fan1, fan2, water_pump); // setup web server routes
+    //fan1.begin(); // initialize motor controller
+    //fan2.begin(); // initialize motor controller
+    //water_pump.begin(); // initialize motor controller
+    Serial.println("Hardware initialized!");
 }
 
 void loop() {
