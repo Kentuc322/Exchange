@@ -2,6 +2,12 @@
 #include <Arduino.h>
 
 namespace Config {
+    // Hardware enable flags - set to false if hardware is not connected
+    constexpr bool ENABLE_FAN1 = false;
+    constexpr bool ENABLE_FAN2 = false;
+    constexpr bool ENABLE_WATER_PUMP = false;
+    constexpr bool ENABLE_AHT_SENSOR = true; // Will be auto-detected anyway
+    
     constexpr int FAN1_CHANNEL = 0;
     constexpr int FAN2_CHANNEL = 1;
     constexpr int WATER_PUMP_CHANNEL = 2;
@@ -10,7 +16,7 @@ namespace Config {
     constexpr int FAN2_PIN = 6;
     constexpr int WATER_PUMP_PIN = 7;
 
-    constexpr int MOISTURE_SENSOR_PIN = A0;
+    constexpr int MOISTURE_SENSOR_PIN = 32;
 
     constexpr float HUMIDITY_THRESHOLD = 70.0; // Example threshold
     constexpr float TEMP_THRESHOLD = 30.0; // Example threshold
