@@ -21,13 +21,16 @@ void setupWebServer(
         float temperature = sensors.readTemperature();
         float moisture = sensors.readMoisture();
 
-        // Build JSON response more efficiently
+        // Build JSON response
+        String humidityValue = isnan(humidity) ? "null" : String(humidity, 1);
+        String temperatureValue = isnan(temperature) ? "null" : String(temperature, 1);
+        String moistureValue = isnan(moisture) ? "null" : String(moisture, 1);
         String json;
-        json.reserve(80); // Pre-allocate memory
+        json.reserve(96); // Pre-allocate memory
         json = "{";
-        json += "\"humidity\":" + String(humidity, 1) + ",";
-        json += "\"temperature\":" + String(temperature, 1) + ",";
-        json += "\"moisture\":" + String(moisture, 0);
+        json += "\"humidity\":" + humidityValue + ",";
+        json += "\"temperature\":" + temperatureValue + ",";
+        json += "\"moisture\":" + moistureValue;
         json += "}";
 
         server.send(200, "application/json", json);

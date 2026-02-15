@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-const char index_html[] PROGMEM = R"rawliteral()
+const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -70,7 +70,7 @@ const char index_html[] PROGMEM = R"rawliteral()
       </div>
       <div class="moisture-box">
         <div class="sensor-value" id="moist">--</div>
-        <div class="sensor-unit">Soil Moisture (Raw)</div>
+        <div class="sensor-unit">Soil Moisture (%)</div>
       </div>
     </div>
 
@@ -104,9 +104,13 @@ const char index_html[] PROGMEM = R"rawliteral()
     fetch('/status')
       .then(response => response.json())
       .then(data => {
-        document.getElementById('temp').innerText = data.temperature.toFixed(1);
-        document.getElementById('hum').innerText = data.humidity.toFixed(1);
-        document.getElementById('moist').innerText = data.moisture;
+        const temp = data.temperature;
+        const hum = data.humidity;
+        const moist = data.moisture;
+        
+        document.getElementById('temp').innerText = (temp === null || Number.isNaN(temp)) ? '--' : temp.toFixed(1);
+        document.getElementById('hum').innerText = (hum === null || Number.isNaN(hum)) ? '--' : hum.toFixed(1);
+        document.getElementById('moist').innerText = (moist === null || Number.isNaN(moist)) ? '--' : moist.toFixed(1);
         document.getElementById('connection-status').innerText = 'System Online';
         document.getElementById('connection-status').style.color = 'green';
       })
