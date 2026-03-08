@@ -124,6 +124,12 @@ const char index_html[] PROGMEM = R"rawliteral(
     signOut,
     onAuthStateChanged
   } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+  import {
+    getDatabase,
+    ref,
+    onValue,
+    update
+  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
   // Step 1: Replace with values from your Firebase project settings.
   const firebaseConfig = {
@@ -136,13 +142,22 @@ const char index_html[] PROGMEM = R"rawliteral(
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getDatabase(app);
   const provider = new GoogleAuthProvider();
+  const devicePath = 'device_01';
+  const sensorsRef = ref(db, `${devicePath}/sensors`);
+  const controlsRef = ref(db, `${devicePath}/controls`);
 
   const statusEl = document.getElementById('connection-status');
   const authUserEl = document.getElementById('auth-user');
+  const tempEl = document.getElementById('temp');
+  const humEl = document.getElementById('hum');
+  const moistEl = document.getElementById('moist');
   const loginBtn = document.getElementById('login-btn');
   const logoutBtn = document.getElementById('logout-btn');
   const authRequiredButtons = document.querySelectorAll('.requires-auth');
+  let stopSensorsListener = null;
+  let stopControlsListener = null;
 
   function setStatus(message, color) {
     statusEl.innerText = message;
@@ -153,6 +168,54 @@ const char index_html[] PROGMEM = R"rawliteral(
     authRequiredButtons.forEach((button) => {
       button.disabled = !enabled;
     });
+  }
+
+  function formatSensorValue(value) {
+    return (typeof value === 'number' && Number.isFinite(value)) ? value.toFixed(1) : '--';
+  }
+
+  function renderSensors(data = {}) {
+    tempEl.innerText = formatSensorValue(data.temperature);
+    humEl.innerText = formatSensorValue(data.humidity);
+    moistEl.innerText = formatSensorValue(data.soil_moisture);
+  }
+
+  function stopRealtimeListeners() {
+    if (typeof stopSensorsListener === 'function') {
+      stopSensorsListener();
+      stopSensorsListener = null;
+    }
+    if (typeof stopControlsListener === 'function') {
+      stopControlsListener();
+      stopControlsListener = null;
+    }
+  }
+
+  function startRealtimeListeners() {
+    stopRealtimeListeners();
+
+    stopSensorsListener = onValue(
+      sensorsRef,
+      (snapshot) => {
+        renderSensors(snapshot.val() || {});
+        setStatus('Realtime sensor stream active', 'green');
+      },
+      (error) => {
+        console.error('Sensor stream error:', error);
+        setStatus('Sensor stream error', '#e74c3c');
+      }
+    );
+
+    stopControlsListener = onValue(
+      controlsRef,
+      (snapshot) => {
+        const controls = snapshot.val() || {};
+        console.log('controls updated:', controls);
+      },
+      (error) => {
+        console.error('Controls stream error:', error);
+      }
+    );
   }
 
   async function handleLogin() {
@@ -182,10 +245,13 @@ const char index_html[] PROGMEM = R"rawliteral(
       loginBtn.disabled = true;
       logoutBtn.disabled = false;
       setControlsEnabled(true);
-      setStatus('Signed in and ready', 'green');
+      setStatus('Signed in. Connecting realtime stream...', 'green');
+      startRealtimeListeners();
       return;
     }
 
+    stopRealtimeListeners();
+    renderSensors();
     authUserEl.innerText = 'Not signed in';
     loginBtn.disabled = false;
     logoutBtn.disabled = true;
@@ -193,15 +259,37 @@ const char index_html[] PROGMEM = R"rawliteral(
     setStatus('Please sign in with Google', '#888');
   });
 
-  // Step 2 will replace this stub with Firebase Database write logic.
-  window.control = function control(device, action) {
+  // Step 2: Write control states to /device_01/controls.
+  window.control = async function control(device, action) {
     if (!auth.currentUser) {
       alert('操作前にGoogleログインしてください。');
       return;
     }
-    console.log('Step 2 TODO:', device, action);
+
+    const isOn = action === 'fullSpeed';
+    let payload = null;
+
+    if (device === 'pump') {
+      payload = { is_watering: isOn };
+    } else if (device === 'fan1') {
+      payload = { is_ventilating: isOn };
+    }
+
+    if (!payload) {
+      console.warn('Unsupported device/action:', device, action);
+      return;
+    }
+
+    try {
+      await update(controlsRef, payload);
+      setStatus(`Control updated: ${JSON.stringify(payload)}`, '#2ecc71');
+    } catch (error) {
+      console.error('Failed to update controls:', error);
+      setStatus('Failed to update controls', '#e74c3c');
+    }
   };
 
+  renderSensors();
   setControlsEnabled(false);
   setStatus('Checking authentication...', '#666');
 </script>
