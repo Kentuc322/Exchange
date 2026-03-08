@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "secrets.hpp"
 
 namespace Config {
     // Hardware enable flags - set to false if hardware is not connected
@@ -19,8 +20,16 @@ namespace Config {
     constexpr float TEMP_THRESHOLD = 30.0; // Example threshold
     constexpr int SOIL_THRESHOLD = 500; // Example threshold
 
-    // WiFi settings
-    constexpr const char* WIFI_SSID = "WateringRobotNetwork";
-    constexpr const char* WIFI_PASSWORD = "SecurePass123";
-    constexpr int WIFI_TIMEOUT_MS = 20000; // 10 seconds
+    // WiFi settings (actual values are defined in include/secrets.hpp)
+    constexpr const char* WIFI_SSID = Secrets::WIFI_SSID;
+    constexpr const char* WIFI_PASSWORD = Secrets::WIFI_PASSWORD;
+    constexpr int WIFI_TIMEOUT_MS = 20000;
+
+    // Firebase settings (actual values are defined in include/secrets.hpp)
+    constexpr const char* FIREBASE_API_KEY = Secrets::FIREBASE_API_KEY;
+    constexpr const char* FIREBASE_DATABASE_URL = Secrets::FIREBASE_DATABASE_URL;
+    constexpr const char* FIREBASE_USER_EMAIL = Secrets::FIREBASE_USER_EMAIL;
+    constexpr const char* FIREBASE_USER_PASSWORD = Secrets::FIREBASE_USER_PASSWORD;
+    constexpr const char* FIREBASE_DEVICE_ID = "device_01";
+    constexpr int FIREBASE_AUTH_TIMEOUT_MS = 30000;
 };

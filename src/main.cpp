@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Firebase_ESP_Client.h>
 #include "motors.hpp"
 #include "sensors.hpp"
 #include "constants.hpp"
@@ -9,8 +10,62 @@
 Sensors sensors(Config::MOISTURE_SENSOR_PIN);
 WebServer server(80);
 
+FirebaseData fbdo;
+FirebaseAuth firebaseAuth;
+FirebaseConfig firebaseConfig;
+bool firebaseReady = false;
+
 MotorController fan1 = MotorController(Config::FAN1_PIN, Config::FAN1_CHANNEL); // create motor controller: pin 5, channel 0: fan 1
 MotorController water_pump = MotorController(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL); // create motor controller: pin 7, channel 2: water pump
+
+bool connectToWiFi() {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(Config::WIFI_SSID, Config::WIFI_PASSWORD);
+
+    Serial.printf("Connecting to WiFi SSID: %s", Config::WIFI_SSID);
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < Config::WIFI_TIMEOUT_MS) {
+        Serial.print('.');
+        delay(500);
+    }
+    Serial.println();
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi connection failed.");
+        return false;
+    }
+
+    Serial.println("WiFi connected.");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    return true;
+}
+
+void initFirebase() {
+    firebaseConfig.api_key = Config::FIREBASE_API_KEY;
+    firebaseConfig.database_url = Config::FIREBASE_DATABASE_URL;
+
+    firebaseAuth.user.email = Config::FIREBASE_USER_EMAIL;
+    firebaseAuth.user.password = Config::FIREBASE_USER_PASSWORD;
+
+    Firebase.reconnectWiFi(true);
+    Firebase.begin(&firebaseConfig, &firebaseAuth);
+
+    Serial.println("Authenticating to Firebase with email/password...");
+    unsigned long start = millis();
+    while (!Firebase.ready() && (millis() - start) < Config::FIREBASE_AUTH_TIMEOUT_MS) {
+        Serial.print('.');
+        delay(250);
+    }
+    Serial.println();
+
+    firebaseReady = Firebase.ready();
+    if (firebaseReady) {
+        Serial.println("Firebase authentication success.");
+    } else {
+        Serial.println("Firebase authentication failed or timed out.");
+    }
+}
 
 void setup() {
     delay(1000); // Wait 1 second
@@ -19,22 +74,25 @@ void setup() {
     Serial.println("\n\n=== System Starting ===");
     
     // Connect to WiFi
-    Serial.println("[1/5] Connecting to WiFi...");
-    WiFi.softAP(Config::WIFI_SSID, Config::WIFI_PASSWORD);
-    IPAddress IP = WiFi.softAPIP();
-    Serial.println("WiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(IP);
+    Serial.println("[1/6] Connecting to WiFi...");
+    bool wifiConnected = connectToWiFi();
+
+    Serial.println("[2/6] Initializing Firebase auth...");
+    if (wifiConnected) {
+        initFirebase();
+    } else {
+        Serial.println("Skipping Firebase init because WiFi is not connected.");
+    }
     
-    Serial.println("[2/5] Setting up web server...");
+    Serial.println("[3/6] Setting up web server...");
     setupWebServer(server, sensors, fan1, water_pump); // setup web server routes
     Serial.println("  (^_^)  Web server initialized!");
     
-    Serial.println("[3/5] Initializing sensors...");
+    Serial.println("[4/6] Initializing sensors...");
     sensors.begin(); // initialize sensors
     Serial.println("  (^_^)  Sensors initialized!");
     
-    Serial.println("[4/5] Initializing motor controllers...");
+    Serial.println("[5/6] Initializing motor controllers...");
     
     if (Config::ENABLE_FAN1) {
         Serial.println("  - Initializing fan1 (pin 5, channel 0)...");
@@ -54,7 +112,7 @@ void setup() {
     
     Serial.println("  (^_^)  Motor controllers initialized!");
     
-    Serial.println("[5/5] Setup completed!!!\n");
+    Serial.println("[6/6] Setup completed!!!\n");
 }
 
 void loop() {

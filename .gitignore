@@ -4,3 +4,7 @@
 .vscode/launch.json
 .vscode/ipch
 .DS_Store
+
+# Local secrets
+include/secrets.hpp
+firebase-config.local.js
