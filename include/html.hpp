@@ -26,6 +26,9 @@ const char index_html[] PROGMEM = R"rawliteral(
     .card { background: var(--card-bg); border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
     .card:hover { transform: translateY(-2px); }
     .card h2 { margin-top: 0; font-size: 1.2rem; color: #666; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+    .auth-card { width: 100%; max-width: 800px; margin-bottom: 20px; }
+    .auth-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .auth-user { color: #555; font-size: 0.95rem; }
     
     /* Sensor Styles */
     .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -45,6 +48,9 @@ const char index_html[] PROGMEM = R"rawliteral(
     
     .btn-on { background: var(--success); box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); }
     .btn-off { background: var(--danger); box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3); }
+    .btn-auth { background: #4a90e2; box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3); }
+    .btn-muted { background: #7f8c8d; box-shadow: 0 4px 10px rgba(127, 140, 141, 0.3); }
+    button[disabled] { cursor: not-allowed; opacity: 0.6; box-shadow: none; }
 
     /* Status Indicator */
     #connection-status { position: fixed; bottom: 10px; right: 10px; font-size: 0.8rem; color: #888; }
@@ -53,6 +59,17 @@ const char index_html[] PROGMEM = R"rawliteral(
 <body>
 
   <h1>🌱 Watering Robot Monitor</h1>
+
+  <div class="card auth-card">
+    <h2>Authentication</h2>
+    <div class="auth-row">
+      <div class="auth-user" id="auth-user">Not signed in</div>
+      <div class="btn-group">
+        <button id="login-btn" class="btn-auth">Google Login</button>
+        <button id="logout-btn" class="btn-muted" disabled>Logout</button>
+      </div>
+    </div>
+  </div>
 
   <div class="dashboard">
     <!-- Monitor Section -->
@@ -81,16 +98,16 @@ const char index_html[] PROGMEM = R"rawliteral(
       <div class="control-group">
         <span class="control-label">Fan 1 (Cooling)</span>
         <div class="btn-group">
-          <button class="btn-on" onclick="control('fan1', 'fullSpeed')">FULL</button>
-          <button class="btn-off" onclick="control('fan1', 'stop')">STOP</button>
+          <button class="btn-on requires-auth" onclick="control('fan1', 'fullSpeed')">FULL</button>
+          <button class="btn-off requires-auth" onclick="control('fan1', 'stop')">STOP</button>
         </div>
       </div>
 
       <div class="control-group">
         <span class="control-label">Water Pump</span>
         <div class="btn-group">
-          <button class="btn-on" onclick="control('pump', 'fullSpeed')">POUR</button>
-          <button class="btn-off" onclick="control('pump', 'stop')">STOP</button>
+          <button class="btn-on requires-auth" onclick="control('pump', 'fullSpeed')">POUR</button>
+          <button class="btn-off requires-auth" onclick="control('pump', 'stop')">STOP</button>
         </div>
       </div>
     </div>
@@ -98,40 +115,95 @@ const char index_html[] PROGMEM = R"rawliteral(
 
   <div id="connection-status">Connecting...</div>
 
-<script>
-  // センサーデータを定期的に取得 (AJAX Polling)
-  function fetchSensorData() {
-    fetch('/status')
-      .then(response => response.json())
-      .then(data => {
-        const temp = data.temperature;
-        const hum = data.humidity;
-        const moist = data.moisture;
-        
-        document.getElementById('temp').innerText = (temp === null || Number.isNaN(temp)) ? '--' : temp.toFixed(1);
-        document.getElementById('hum').innerText = (hum === null || Number.isNaN(hum)) ? '--' : hum.toFixed(1);
-        document.getElementById('moist').innerText = (moist === null || Number.isNaN(moist)) ? '--' : moist.toFixed(1);
-        document.getElementById('connection-status').innerText = 'System Online';
-        document.getElementById('connection-status').style.color = 'green';
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('connection-status').innerText = 'Connection Lost';
-        document.getElementById('connection-status').style.color = 'red';
-      });
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+
+  // Step 1: Replace with values from your Firebase project settings.
+  const firebaseConfig = {
+    apiKey: 'YOUR_API_KEY',
+    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+    databaseURL: 'https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com',
+    projectId: 'YOUR_PROJECT_ID',
+    appId: 'YOUR_APP_ID'
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  const statusEl = document.getElementById('connection-status');
+  const authUserEl = document.getElementById('auth-user');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const authRequiredButtons = document.querySelectorAll('.requires-auth');
+
+  function setStatus(message, color) {
+    statusEl.innerText = message;
+    statusEl.style.color = color;
   }
 
-  // 制御コマンドの送信
-  function control(device, action) {
-    fetch(`/control?device=${device}&action=${action}`)
-      .then(response => {
-        if(response.ok) console.log(`${device} set to ${action}`);
-      });
+  function setControlsEnabled(enabled) {
+    authRequiredButtons.forEach((button) => {
+      button.disabled = !enabled;
+    });
   }
 
-  // 1秒ごとに更新
-  setInterval(fetchSensorData, 1000);
-  fetchSensorData(); // 初回実行
+  async function handleLogin() {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error('Google sign-in failed:', error);
+      alert('Googleログインに失敗しました。FirebaseのAuthorized domains設定を確認してください。');
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Sign-out failed:', error);
+      alert('ログアウトに失敗しました。');
+    }
+  }
+
+  loginBtn.addEventListener('click', handleLogin);
+  logoutBtn.addEventListener('click', handleLogout);
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      authUserEl.innerText = `Signed in: ${user.displayName || user.email}`;
+      loginBtn.disabled = true;
+      logoutBtn.disabled = false;
+      setControlsEnabled(true);
+      setStatus('Signed in and ready', 'green');
+      return;
+    }
+
+    authUserEl.innerText = 'Not signed in';
+    loginBtn.disabled = false;
+    logoutBtn.disabled = true;
+    setControlsEnabled(false);
+    setStatus('Please sign in with Google', '#888');
+  });
+
+  // Step 2 will replace this stub with Firebase Database write logic.
+  window.control = function control(device, action) {
+    if (!auth.currentUser) {
+      alert('操作前にGoogleログインしてください。');
+      return;
+    }
+    console.log('Step 2 TODO:', device, action);
+  };
+
+  setControlsEnabled(false);
+  setStatus('Checking authentication...', '#666');
 </script>
 </body>
 </html>
