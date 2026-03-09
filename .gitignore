@@ -4,3 +4,7 @@
 .vscode/launch.json
 .vscode/ipch
 .DS_Store
+
+# Local Firebase config file (ignored by git)
+firebase-config.local.js
+include/secrets.hpp
