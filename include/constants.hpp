@@ -24,6 +24,7 @@ namespace Config {
     constexpr const char* WIFI_SSID = Secrets::WIFI_SSID;
     constexpr const char* WIFI_PASSWORD = Secrets::WIFI_PASSWORD;
     constexpr int WIFI_TIMEOUT_MS = 20000;
+    constexpr int WIFI_RECONNECTION_MS = 30000;
 
     // Firebase settings (actual values are defined in include/secrets.hpp)
     constexpr const char* FIREBASE_API_KEY = Secrets::FIREBASE_API_KEY;
