@@ -110,7 +110,7 @@
 
   <div id="connection-status">Connecting...</div>
 
-<script src="./firebase-config.local.js"></script>
+<script src="./firebase-config.js"></script>
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
   import {
@@ -127,7 +127,7 @@
     update
   } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
-  // Keep sensitive/project-specific values in firebase-config.local.js (gitignored).
+  // Use firebase-config.js for GitHub Pages/public hosting.
   const firebaseConfig = window.__FIREBASE_CONFIG__ || {
     apiKey: 'YOUR_API_KEY',
     authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
@@ -139,7 +139,7 @@
   };
 
   if (!window.__FIREBASE_CONFIG__) {
-    console.warn('firebase-config.local.js is missing. Using placeholder Firebase config.');
+    console.warn('firebase-config.js is missing. Using placeholder Firebase config.');
   }
 
   const app = initializeApp(firebaseConfig);

@@ -1,4 +1,5 @@
-// Copy this file to firebase-config.js and fill actual values for GitHub Pages.
+// Firebase Web config for GitHub Pages/public hosting.
+// This file is intentionally tracked in git because Firebase Web config is public by design.
 window.__FIREBASE_CONFIG__ = {
   apiKey: 'YOUR_API_KEY',
   authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
