@@ -225,7 +225,13 @@
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error('Google sign-in failed:', error);
-      alert('Google login failed. Please check your Firebase Authorized domains settings.');
+      const errorCode = error?.code || 'unknown-error';
+      const currentHost = window.location.hostname;
+      if (errorCode === 'auth/unauthorized-domain') {
+        alert(`Google login failed: ${errorCode}\nAdd this domain in Firebase Console > Authentication > Settings > Authorized domains:\n${currentHost}`);
+      } else {
+        alert(`Google login failed: ${errorCode}`);
+      }
     }
   }
 
