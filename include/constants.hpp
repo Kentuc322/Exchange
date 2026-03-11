@@ -18,7 +18,7 @@ namespace Config {
 
     constexpr float HUMIDITY_THRESHOLD = 70.0; // Example threshold
     constexpr float TEMP_THRESHOLD = 30.0; // Example threshold
-    constexpr int SOIL_THRESHOLD = 500; // Example threshold
+    constexpr float SOIL_THRESHOLD = 50.0; // Example threshold
 
     // WiFi settings (actual values are defined in include/secrets.hpp)
     constexpr const char* WIFI_SSID = Secrets::WIFI_SSID;
