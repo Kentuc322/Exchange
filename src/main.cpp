@@ -1,67 +1,90 @@
 #include <Arduino.h>
-#include <WiFi.h>
 #include <WebServer.h>
+
+#include "constants.hpp"
+#include "firebase_service.hpp"
 #include "motors.hpp"
 #include "sensors.hpp"
-#include "constants.hpp"
 #include "web_server.hpp"
+#include "wifi_manager.hpp"
 
 Sensors sensors(Config::MOISTURE_SENSOR_PIN);
 WebServer server(80);
 
-MotorController fan1 = MotorController(Config::FAN1_PIN, Config::FAN1_CHANNEL); // create motor controller: pin 5, channel 0: fan 1
-MotorController water_pump = MotorController(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL); // create motor controller: pin 7, channel 2: water pump
+MotorController fan1(Config::FAN1_PIN, Config::FAN1_CHANNEL);
+MotorController waterPump(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL);
+FirebaseService firebaseService(sensors, fan1, waterPump);
 
-void setup() {
-    delay(1000); // Wait 1 second
-    Serial.begin(115200); // initialize serial communication
-    delay(500);
-    Serial.println("\n\n=== System Starting ===");
-    
-    // Connect to WiFi
-    Serial.println("[1/5] Connecting to WiFi...");
-    WiFi.softAP(Config::WIFI_SSID, Config::WIFI_PASSWORD);
-    IPAddress IP = WiFi.softAPIP();
-    Serial.println("WiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(IP);
-    
-    Serial.println("[2/5] Setting up web server...");
-    setupWebServer(server, sensors, fan1, water_pump); // setup web server routes
-    Serial.println("  (^_^)  Web server initialized!");
-    
-    Serial.println("[3/5] Initializing sensors...");
-    sensors.begin(); // initialize sensors
-    Serial.println("  (^_^)  Sensors initialized!");
-    
-    Serial.println("[4/5] Initializing motor controllers...");
-    
+bool wifiConnected = false;
+unsigned long wifiReconnectionMs = 0;
+
+void setupMotors() {
+    Serial.println("[4/6] Initializing motor controllers...");
+
     if (Config::ENABLE_FAN1) {
         Serial.println("  - Initializing fan1 (pin 5, channel 0)...");
-        fan1.begin(); // initialize motor controller
+        fan1.begin();
         Serial.println("  - Fan1 initialized");
     } else {
         Serial.println("  - Fan1 disabled");
     }
-    
+
     if (Config::ENABLE_WATER_PUMP) {
         Serial.println("  - Initializing water pump (pin 7, channel 2)...");
-        water_pump.begin(); // initialize motor controller
+        waterPump.begin();
         Serial.println("  - Water pump initialized");
     } else {
         Serial.println("  - Water pump disabled");
     }
-    
+
     Serial.println("  (^_^)  Motor controllers initialized!");
-    
-    Serial.println("[5/5] Setup completed!!!\n");
+}
+
+void setup() {
+    delay(1000);
+    Serial.begin(115200);
+    delay(500);
+    Serial.println("\n\n=== System Starting ===");
+
+    Serial.println("[1/6] Connecting to WiFi...");
+    wifiConnected = connectToWiFiStation();
+
+    Serial.println("[2/6] Setting up web server...");
+    setupWebServer(server, sensors, fan1, waterPump);
+    Serial.println("  (^_^)  Web server initialized!");
+
+    Serial.println("[3/6] Initializing sensors...");
+    sensors.begin();
+    Serial.println("  (^_^)  Sensors initialized!");
+
+    setupMotors();
+
+    Serial.println("[5/6] Initializing Firebase auth...");
+    if (wifiConnected) {
+        firebaseService.begin();
+    } else {
+        wifiReconnectionMs = millis();
+        Serial.println("Skipping Firebase init because WiFi is not connected.");
+    }
+
+    Serial.println("[6/6] Setup completed!!!\n");
 }
 
 void loop() {
-    // Handle web server requests
+    if (!wifiConnected && (wifiReconnectionMs - millis()) > Config::WIFI_RECONNECTION_MS){
+        Serial.println("Reconnecting...");
+        wifiConnected = connectToWiFiStation();
+        if (wifiConnected){
+            Serial.println("WiFi Reconnected!");
+        } else {
+            Serial.println("WiFi Reconnection Failed");
+        }
+    }
+
     server.handleClient();
-    
-    // Read sensor data
+    firebaseService.loop();
+
+    // Read sensors data
     float humidity = NAN;
     float temperature = NAN;
     float moisture = sensors.readMoisture();
@@ -84,9 +107,9 @@ void loop() {
     // control logic based on sensor readings (need to be considered)
     if (Config::ENABLE_WATER_PUMP) {
         if (moisture < Config::SOIL_THRESHOLD) {
-            water_pump.fullSpeed(); // turn on water pump
+            waterPump.fullSpeed(); // turn on water pump
         } else {
-            water_pump.stop(); // turn off water pump
+            waterPump.stop(); // turn off water pump
         }
     }
 
@@ -102,5 +125,5 @@ void loop() {
         if (Config::ENABLE_FAN1) fan1.stop();
     }
 
-    delay(1000);
+    delay(10);
 }

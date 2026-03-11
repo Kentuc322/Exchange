@@ -2,3 +2,18 @@
 IoT
 
 platformio.iniを書き換える！
+
+## Web公開 (GitHub Pages)
+
+1. `firebase-config.js` に Firebase Web 設定値を入力する。
+2. 変更を `main` ブランチに push する。
+3. GitHub リポジトリの `Settings > Pages` を開く。
+4. `Build and deployment` で `Deploy from a branch` を選ぶ。
+5. `Branch` を `main`、`/(root)` を選んで保存する。
+
+公開URL:
+`https://Kentuc322.github.io/Exchange/`
+
+注意:
+- `firebase-config.js` の値は Web クライアント用で公開前提。
+- `include/secrets.hpp` と `firebase-config.local.js` は引き続き非公開で管理する。

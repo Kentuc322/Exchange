@@ -21,6 +21,9 @@
     .card { background: var(--card-bg); border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
     .card:hover { transform: translateY(-2px); }
     .card h2 { margin-top: 0; font-size: 1.2rem; color: #666; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+    .auth-card { width: 100%; max-width: 800px; margin-bottom: 20px; }
+    .auth-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .auth-user { color: #555; font-size: 0.95rem; }
     
     /* Sensor Styles */
     .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -40,6 +43,9 @@
     
     .btn-on { background: var(--success); box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); }
     .btn-off { background: var(--danger); box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3); }
+    .btn-auth { background: #4a90e2; box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3); }
+    .btn-muted { background: #7f8c8d; box-shadow: 0 4px 10px rgba(127, 140, 141, 0.3); }
+    button[disabled] { cursor: not-allowed; opacity: 0.6; box-shadow: none; }
 
     /* Status Indicator */
     #connection-status { position: fixed; bottom: 10px; right: 10px; font-size: 0.8rem; color: #888; }
@@ -48,6 +54,17 @@
 <body>
 
   <h1>🌱 Watering Robot Monitor</h1>
+
+  <div class="card auth-card">
+    <h2>Authentication</h2>
+    <div class="auth-row">
+      <div class="auth-user" id="auth-user">Not signed in</div>
+      <div class="btn-group">
+        <button id="login-btn" class="btn-auth">Google Login</button>
+        <button id="logout-btn" class="btn-muted" disabled>Logout</button>
+      </div>
+    </div>
+  </div>
 
   <div class="dashboard">
     <!-- Monitor Section -->
@@ -76,16 +93,16 @@
       <div class="control-group">
         <span class="control-label">Fan 1 (Cooling)</span>
         <div class="btn-group">
-          <button class="btn-on" onclick="control('fan1', 'fullSpeed')">FULL</button>
-          <button class="btn-off" onclick="control('fan1', 'stop')">STOP</button>
+          <button class="btn-on requires-auth" onclick="control('fan1', 'fullSpeed')">FULL</button>
+          <button class="btn-off requires-auth" onclick="control('fan1', 'stop')">STOP</button>
         </div>
       </div>
 
       <div class="control-group">
         <span class="control-label">Water Pump</span>
         <div class="btn-group">
-          <button class="btn-on" onclick="control('pump', 'fullSpeed')">POUR</button>
-          <button class="btn-off" onclick="control('pump', 'stop')">STOP</button>
+          <button class="btn-on requires-auth" onclick="control('pump', 'fullSpeed')">POUR</button>
+          <button class="btn-off requires-auth" onclick="control('pump', 'stop')">STOP</button>
         </div>
       </div>
     </div>
@@ -93,40 +110,190 @@
 
   <div id="connection-status">Connecting...</div>
 
-<script>
-  // センサーデータを定期的に取得 (AJAX Polling)
-  function fetchSensorData() {
-    fetch('/status')
-      .then(response => response.json())
-      .then(data => {
-        const temp = data.temperature;
-        const hum = data.humidity;
-        const moist = data.moisture;
-        
-        document.getElementById('temp').innerText = (temp === null || Number.isNaN(temp)) ? '--' : temp.toFixed(1);
-        document.getElementById('hum').innerText = (hum === null || Number.isNaN(hum)) ? '--' : hum.toFixed(1);
-        document.getElementById('moist').innerText = (moist === null || Number.isNaN(moist)) ? '--' : moist.toFixed(1);
-        document.getElementById('connection-status').innerText = 'System Online';
-        document.getElementById('connection-status').style.color = 'green';
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('connection-status').innerText = 'Connection Lost';
-        document.getElementById('connection-status').style.color = 'red';
-      });
+<script src="./firebase-config.js"></script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+  import {
+    getDatabase,
+    ref,
+    onValue,
+    update
+  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+
+  // Use firebase-config.js for GitHub Pages/public hosting.
+  const firebaseConfig = window.__FIREBASE_CONFIG__ || {
+    apiKey: 'YOUR_API_KEY',
+    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+    databaseURL: 'https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com',
+    projectId: 'YOUR_PROJECT_ID',
+    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+    appId: 'YOUR_APP_ID'
+  };
+
+  if (!window.__FIREBASE_CONFIG__) {
+    console.warn('firebase-config.js is missing. Using placeholder Firebase config.');
   }
 
-  // 制御コマンドの送信
-  function control(device, action) {
-    fetch(`/control?device=${device}&action=${action}`)
-      .then(response => {
-        if(response.ok) console.log(`${device} set to ${action}`);
-      });
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+  const provider = new GoogleAuthProvider();
+  const devicePath = 'device_01';
+  const sensorsRef = ref(db, `${devicePath}/sensors`);
+  const controlsRef = ref(db, `${devicePath}/controls`);
+
+  const statusEl = document.getElementById('connection-status');
+  const authUserEl = document.getElementById('auth-user');
+  const tempEl = document.getElementById('temp');
+  const humEl = document.getElementById('hum');
+  const moistEl = document.getElementById('moist');
+  const loginButton = document.getElementById('login-btn');
+  const logoutButton = document.getElementById('logout-btn');
+  const authRequiredButtons = document.querySelectorAll('.requires-auth');
+  let stopSensorsListener = null;
+  let stopControlsListener = null;
+
+  function setStatus(message, color) {
+    statusEl.innerText = message;
+    statusEl.style.color = color;
   }
 
-  // 1秒ごとに更新
-  setInterval(fetchSensorData, 1000);
-  fetchSensorData(); // 初回実行
+  function setControlsEnabled(enabled) {
+    authRequiredButtons.forEach((button) => {
+      button.disabled = !enabled;
+    });
+  }
+
+  function formatSensorValue(value) {
+    return (typeof value === 'number' && Number.isFinite(value)) ? value.toFixed(1) : '--';
+  }
+
+  function renderSensors(data = {}) {
+    tempEl.innerText = formatSensorValue(data.temperature);
+    humEl.innerText = formatSensorValue(data.humidity);
+    moistEl.innerText = formatSensorValue(data.soil_moisture);
+  }
+
+  function stopRealtimeListeners() {
+    if (typeof stopSensorsListener === 'function') {
+      stopSensorsListener();
+      stopSensorsListener = null;
+    }
+    if (typeof stopControlsListener === 'function') {
+      stopControlsListener();
+      stopControlsListener = null;
+    }
+  }
+
+  function startRealtimeListeners() {
+    stopRealtimeListeners();
+
+    stopSensorsListener = onValue(
+      sensorsRef,
+      (snapshot) => {
+        renderSensors(snapshot.val() || {});
+        setStatus('Realtime sensor stream active', 'green');
+      },
+      (error) => {
+        console.error('Sensor stream error:', error);
+        setStatus('Sensor stream error', '#e74c3c');
+      }
+    );
+
+    stopControlsListener = onValue(
+      controlsRef,
+      (snapshot) => {
+        const controls = snapshot.val() || {};
+        console.log('controls updated:', controls);
+      },
+      (error) => {
+        console.error('Controls stream error:', error);
+      }
+    );
+  }
+
+  async function handleLogin() {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error('Google sign-in failed:', error);
+      alert('Google login failed. Please check your Firebase Authorized domains settings.');
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Sign-out failed:', error);
+      alert('Logout failed. Please try again.');
+    }
+  }
+
+  loginButton.addEventListener('click', handleLogin);
+  logoutButton.addEventListener('click', handleLogout);
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      authUserEl.innerText = `Signed in: ${user.displayName || user.email}`;
+      loginButton.disabled = true;
+      logoutButton.disabled = false;
+      setControlsEnabled(true);
+      setStatus('Signed in. Connecting realtime stream...', 'green');
+      startRealtimeListeners();
+      return;
+    }
+
+    stopRealtimeListeners();
+    renderSensors();
+    authUserEl.innerText = 'Not signed in';
+    loginButton.disabled = false;
+    logoutButton.disabled = true;
+    setControlsEnabled(false);
+    setStatus('Please sign in with Google', '#888');
+  });
+
+  // Step 2: Write control states to /device_01/controls.
+  window.control = async function control(device, action) {
+    if (!auth.currentUser) {
+      alert('Login required to control devices.');
+      return;
+    }
+
+    const isOn = action === 'fullSpeed';
+    let payload = null;
+
+    if (device === 'pump') {
+      payload = { is_watering: isOn };
+    } else if (device === 'fan1') {
+      payload = { is_ventilating: isOn };
+    }
+
+    if (!payload) {
+      console.warn('Unsupported device/action:', device, action);
+      return;
+    }
+
+    try {
+      await update(controlsRef, payload);
+      setStatus(`Control updated: ${JSON.stringify(payload)}`, '#2ecc71');
+    } catch (error) {
+      console.error('Failed to update controls:', error);
+      setStatus('Failed to update controls', '#e74c3c');
+    }
+  };
+
+  renderSensors();
+  setControlsEnabled(false);
+  setStatus('Checking authentication...', '#666');
 </script>
 </body>
 </html>
