@@ -6,6 +6,8 @@
 bool connectToWiFiStation() {
     // WiFi mode: Station
     WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    delay(100);
     WiFi.begin(Config::WIFI_SSID, Config::WIFI_PASSWORD);
 
     Serial.print("Connecting to WiFi SSID ");

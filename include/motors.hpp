@@ -22,6 +22,6 @@ public:
 private:
     uint8_t _pin;
     uint8_t _channel;
-    const double _freq = 5000.0; // PWM周波数 (5kHz)
+    const uint32_t _freq = 5000; // PWM周波数 (5kHz)
     const uint8_t _resolution = 8; // 分解能 (8bit = 0-255)
 };
