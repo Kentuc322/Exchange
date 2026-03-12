@@ -1,15 +1,12 @@
 #include <Arduino.h>
-#include <WebServer.h>
 
 #include "constants.hpp"
 #include "firebase_service.hpp"
 #include "motors.hpp"
 #include "sensors.hpp"
-#include "web_server.hpp"
 #include "wifi_manager.hpp"
 
 Sensors sensors(Config::MOISTURE_SENSOR_PIN);
-WebServer server(80);
 
 MotorController fan1(Config::FAN1_PIN, Config::FAN1_CHANNEL);
 MotorController waterPump(Config::WATER_PUMP_PIN, Config::WATER_PUMP_CHANNEL);
@@ -56,29 +53,24 @@ void setup() {
     wifiConnected = connectToWiFiStation();
     Serial.printf("[1/6] done (wifiConnected=%s, t=%lu ms)\n", wifiConnected ? "true" : "false", millis());
 
-    Serial.println("[2/6] Setting up web server...");
-    setupWebServer(server, sensors, fan1, waterPump);
-    Serial.println("  (^_^)  Web server initialized!");
-    Serial.printf("[2/6] done (t=%lu ms)\n", millis());
-
-    Serial.println("[3/6] Initializing sensors...");
+    Serial.println("[2/6] Initializing sensors...");
     sensors.begin();
     Serial.println("  (^_^)  Sensors initialized!");
-    Serial.printf("[3/6] done (t=%lu ms)\n", millis());
+    Serial.printf("[2/6] done (t=%lu ms)\n", millis());
 
     setupMotors();
-    Serial.printf("[4/6] done (t=%lu ms)\n", millis());
+    Serial.printf("[3/6] done (t=%lu ms)\n", millis());
 
-    Serial.println("[5/6] Initializing Firebase auth...");
+    Serial.println("[4/6] Initializing Firebase auth...");
     if (wifiConnected) {
         firebaseService.begin();
     } else {
         wifiReconnectionMs = millis();
         Serial.println("Skipping Firebase init because WiFi is not connected.");
     }
-    Serial.printf("[5/6] done (firebaseReady=%s, t=%lu ms)\n", firebaseService.isReady() ? "true" : "false", millis());
+    Serial.printf("[4/6] done (firebaseReady=%s, t=%lu ms)\n", firebaseService.isReady() ? "true" : "false", millis());
 
-    Serial.println("[6/6] Setup completed!!!\n");
+    Serial.println("[5/5] Setup completed!!!");
 }
 
 void loop() {
@@ -94,7 +86,6 @@ void loop() {
         }
     }
 
-    server.handleClient();
     firebaseService.loop();
 
     // Read sensors data
