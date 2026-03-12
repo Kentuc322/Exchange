@@ -43,21 +43,31 @@ void setupMotors() {
 void setup() {
     delay(1000);
     Serial.begin(115200);
-    delay(500);
+    const unsigned long serialWaitStart = millis();
+    while (!Serial && (millis() - serialWaitStart) < 3000) {
+        delay(10);
+    }
+    Serial.setDebugOutput(true);
+    delay(200);
     Serial.println("\n\n=== System Starting ===");
+    Serial.printf("Boot timestamp(ms): %lu\n", millis());
 
     Serial.println("[1/6] Connecting to WiFi...");
     wifiConnected = connectToWiFiStation();
+    Serial.printf("[1/6] done (wifiConnected=%s, t=%lu ms)\n", wifiConnected ? "true" : "false", millis());
 
     Serial.println("[2/6] Setting up web server...");
     setupWebServer(server, sensors, fan1, waterPump);
     Serial.println("  (^_^)  Web server initialized!");
+    Serial.printf("[2/6] done (t=%lu ms)\n", millis());
 
     Serial.println("[3/6] Initializing sensors...");
     sensors.begin();
     Serial.println("  (^_^)  Sensors initialized!");
+    Serial.printf("[3/6] done (t=%lu ms)\n", millis());
 
     setupMotors();
+    Serial.printf("[4/6] done (t=%lu ms)\n", millis());
 
     Serial.println("[5/6] Initializing Firebase auth...");
     if (wifiConnected) {
@@ -66,6 +76,7 @@ void setup() {
         wifiReconnectionMs = millis();
         Serial.println("Skipping Firebase init because WiFi is not connected.");
     }
+    Serial.printf("[5/6] done (firebaseReady=%s, t=%lu ms)\n", firebaseService.isReady() ? "true" : "false", millis());
 
     Serial.println("[6/6] Setup completed!!!\n");
 }
