@@ -12,14 +12,19 @@ void MotorController::begin() {
     
     pinMode(_pin, OUTPUT);
     Serial.println("  - Pin configured as OUTPUT");
-    
-    // PWMの設定 (チャンネル, 周波数, 分解能)
-    ledcSetup(_channel, _freq, _resolution);
-    Serial.println("  - PWM channel configured: channel " + String(_channel) + ", freq " + String(_freq) + " Hz, resolution " + String(_resolution) + " bits");
-    
-    // ピンをチャンネルに接続
-    ledcAttachPin(_pin, _channel);
-    Serial.println("  - Pin attached to PWM channel");
+    // PWM Setup
+    #if ESP_ARDUINO_VERSION_MAJOR >= 3
+        // For ESP32 Arduino core v3.0.0 and later, we can set the PWM frequency and resolution directly on the channel
+        ledcAttachChannel(_pin, _freq, _resolution, _channel);
+        Serial.println("  - PWM setup completed");
+    #else
+        // For older versions, we need to set the frequency and resolution globally for the timer
+        // Note: This will affect all channels using the same timer, so it's less flexible
+        const int timer = _channel / 4; // Each timer controls 4 channels
+        ledcSetup(_channel, _freq, _resolution);
+        ledcAttachPin(_pin, _channel);
+        Serial.println("  - PWM setup completed");
+    #endif
     
     // 最初は停止しておく
     stop();
@@ -38,7 +43,6 @@ void MotorController::setSpeed(uint8_t speed) {
 void MotorController::stop() {
     ledcWrite(_channel, 0);
 }
-
 // 最大出力
 void MotorController::fullSpeed() {
     ledcWrite(_channel, 255);
