@@ -71,13 +71,15 @@ void setup() {
 }
 
 void loop() {
-    if (!wifiConnected && (wifiReconnectionMs - millis()) > Config::WIFI_RECONNECTION_MS){
+    if (!wifiConnected && (millis() - wifiReconnectionMs) >= Config::WIFI_RECONNECTION_MS) {
         Serial.println("Reconnecting...");
         wifiConnected = connectToWiFiStation();
-        if (wifiConnected){
+        if (wifiConnected) {
             Serial.println("WiFi Reconnected!");
+            firebaseService.begin();
         } else {
             Serial.println("WiFi Reconnection Failed");
+            wifiReconnectionMs = millis();
         }
     }
 

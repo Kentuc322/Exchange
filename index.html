@@ -182,31 +182,43 @@
     moistEl.innerText = formatSensorValue(data.soil_moisture);
   }
 
-  function stopRealtimeListeners() {
+  function stopSensorsRealtimeListener() {
     if (typeof stopSensorsListener === 'function') {
       stopSensorsListener();
       stopSensorsListener = null;
     }
+  }
+
+  function stopControlsRealtimeListener() {
     if (typeof stopControlsListener === 'function') {
       stopControlsListener();
       stopControlsListener = null;
     }
   }
 
-  function startRealtimeListeners() {
-    stopRealtimeListeners();
+  function startSensorsRealtimeListener() {
+    stopSensorsRealtimeListener();
 
     stopSensorsListener = onValue(
       sensorsRef,
       (snapshot) => {
         renderSensors(snapshot.val() || {});
-        setStatus('Realtime sensor stream active', 'green');
+        setStatus('Realtime sensor stream active (view only available without login)', 'green');
       },
       (error) => {
         console.error('Sensor stream error:', error);
-        setStatus('Sensor stream error', '#e74c3c');
+        const errorCode = error?.code || 'unknown-error';
+        if (errorCode === 'PERMISSION_DENIED') {
+          setStatus('Sensor read denied by Firebase Rules', '#e74c3c');
+        } else {
+          setStatus(`Sensor stream error (${errorCode})`, '#e74c3c');
+        }
       }
     );
+  }
+
+  function startControlsRealtimeListener() {
+    stopControlsRealtimeListener();
 
     stopControlsListener = onValue(
       controlsRef,
@@ -253,18 +265,16 @@
       loginButton.disabled = true;
       logoutButton.disabled = false;
       setControlsEnabled(true);
-      setStatus('Signed in. Connecting realtime stream...', 'green');
-      startRealtimeListeners();
+      startControlsRealtimeListener();
       return;
     }
 
-    stopRealtimeListeners();
-    renderSensors();
+    stopControlsRealtimeListener();
     authUserEl.innerText = 'Not signed in';
     loginButton.disabled = false;
     logoutButton.disabled = true;
     setControlsEnabled(false);
-    setStatus('Please sign in with Google', '#888');
+    setStatus('Guest mode: sensor view only. Sign in to control devices.', '#888');
   });
 
   // Step 2: Write control states to /device_01/controls.
@@ -298,8 +308,9 @@
   };
 
   renderSensors();
+  startSensorsRealtimeListener();
   setControlsEnabled(false);
-  setStatus('Checking authentication...', '#666');
+  setStatus('Checking authentication... Sensor view is available without login.', '#666');
 </script>
 </body>
 </html>
