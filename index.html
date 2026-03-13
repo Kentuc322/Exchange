@@ -3,314 +3,634 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watering Robot Dashboard</title>
-  <style>
-    :root {
-      --bg-color: #f0f2f5;
-      --card-bg: #ffffff;
-      --primary: #4a90e2;
-      --danger: #e74c3c;
-      --success: #2ecc71;
-      --text: #333;
-    }
-    body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    h1 { margin-bottom: 20px; font-weight: 600; color: #444; }
-    
-    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; width: 100%; max-width: 800px; }
-    
-    .card { background: var(--card-bg); border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
-    .card:hover { transform: translateY(-2px); }
-    .card h2 { margin-top: 0; font-size: 1.2rem; color: #666; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
-    .auth-card { width: 100%; max-width: 800px; margin-bottom: 20px; }
-    .auth-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .auth-user { color: #555; font-size: 0.95rem; }
-    
-    /* Sensor Styles */
-    .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-    .sensor-item { text-align: center; }
-    .sensor-value { font-size: 2.5rem; font-weight: bold; color: var(--primary); }
-    .sensor-unit { font-size: 1rem; color: #888; }
-    .moisture-box { margin-top: 15px; text-align: center; }
-
-    /* Control Styles */
-    .control-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-    .control-label { font-weight: 500; font-size: 1.1rem; }
-    .btn-group { display: flex; gap: 10px; }
-    
-    button { border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; color: white; }
-    button:active { transform: scale(0.98); }
-    button:hover { opacity: 0.9; }
-    
-    .btn-on { background: var(--success); box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); }
-    .btn-off { background: var(--danger); box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3); }
-    .btn-auth { background: #4a90e2; box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3); }
-    .btn-muted { background: #7f8c8d; box-shadow: 0 4px 10px rgba(127, 140, 141, 0.3); }
-    button[disabled] { cursor: not-allowed; opacity: 0.6; box-shadow: none; }
-
-    /* Status Indicator */
-    #connection-status { position: fixed; bottom: 10px; right: 10px; font-size: 0.8rem; color: #888; }
-  </style>
-</head>
-<body>
-
-  <h1>🌱 Watering Robot Monitor</h1>
-
-  <div class="card auth-card">
-    <h2>Authentication</h2>
-    <div class="auth-row">
-      <div class="auth-user" id="auth-user">Not signed in</div>
-      <div class="btn-group">
-        <button id="login-btn" class="btn-auth">Google Login</button>
-        <button id="logout-btn" class="btn-muted" disabled>Logout</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="dashboard">
-    <!-- Monitor Section -->
-    <div class="card">
-      <h2>Environment Sensors</h2>
-      <div class="sensor-grid">
-        <div class="sensor-item">
-          <div class="sensor-value" id="temp">--</div>
-          <div class="sensor-unit">Temperature (°C)</div>
-        </div>
-        <div class="sensor-item">
-          <div class="sensor-value" id="hum">--</div>
-          <div class="sensor-unit">Humidity (%)</div>
-        </div>
-      </div>
-      <div class="moisture-box">
-        <div class="sensor-value" id="moist">--</div>
-        <div class="sensor-unit">Soil Moisture (%)</div>
-      </div>
-    </div>
-
-    <!-- Control Section -->
-    <div class="card">
-      <h2>Manual Controls</h2>
-      
-      <div class="control-group">
-        <span class="control-label">Fan 1 (Cooling)</span>
-        <div class="btn-group">
-          <button class="btn-on requires-auth" onclick="control('fan1', 'fullSpeed')">FULL</button>
-          <button class="btn-off requires-auth" onclick="control('fan1', 'stop')">STOP</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <span class="control-label">Water Pump</span>
-        <div class="btn-group">
-          <button class="btn-on requires-auth" onclick="control('pump', 'fullSpeed')">POUR</button>
-          <button class="btn-off requires-auth" onclick="control('pump', 'stop')">STOP</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="connection-status">Connecting...</div>
-
-<script src="./firebase-config.js"></script>
-<script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged
-  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
-  import {
-    getDatabase,
-    ref,
-    onValue,
-    update
-  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
-
-  // Use firebase-config.js for GitHub Pages/public hosting.
-  const firebaseConfig = window.__FIREBASE_CONFIG__ || {
-    apiKey: 'YOUR_API_KEY',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    databaseURL: 'https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    appId: 'YOUR_APP_ID'
-  };
-
-  if (!window.__FIREBASE_CONFIG__) {
-    console.warn('firebase-config.js is missing. Using placeholder Firebase config.');
-  }
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getDatabase(app);
-  const provider = new GoogleAuthProvider();
-  const devicePath = 'device_01';
-  const sensorsRef = ref(db, `${devicePath}/sensors`);
-  const controlsRef = ref(db, `${devicePath}/controls`);
-
-  const statusEl = document.getElementById('connection-status');
-  const authUserEl = document.getElementById('auth-user');
-  const tempEl = document.getElementById('temp');
-  const humEl = document.getElementById('hum');
-  const moistEl = document.getElementById('moist');
-  const loginButton = document.getElementById('login-btn');
-  const logoutButton = document.getElementById('logout-btn');
-  const authRequiredButtons = document.querySelectorAll('.requires-auth');
-  let stopSensorsListener = null;
-  let stopControlsListener = null;
-
-  function setStatus(message, color) {
-    statusEl.innerText = message;
-    statusEl.style.color = color;
-  }
-
-  function setControlsEnabled(enabled) {
-    authRequiredButtons.forEach((button) => {
-      button.disabled = !enabled;
-    });
-  }
-
-  function formatSensorValue(value) {
-    return (typeof value === 'number' && Number.isFinite(value)) ? value.toFixed(1) : '--';
-  }
-
-  function renderSensors(data = {}) {
-    tempEl.innerText = formatSensorValue(data.temperature);
-    humEl.innerText = formatSensorValue(data.humidity);
-    moistEl.innerText = formatSensorValue(data.soil_moisture);
-  }
-
-  function stopSensorsRealtimeListener() {
-    if (typeof stopSensorsListener === 'function') {
-      stopSensorsListener();
-      stopSensorsListener = null;
-    }
-  }
-
-  function stopControlsRealtimeListener() {
-    if (typeof stopControlsListener === 'function') {
-      stopControlsListener();
-      stopControlsListener = null;
-    }
-  }
-
-  function startSensorsRealtimeListener() {
-    stopSensorsRealtimeListener();
-
-    stopSensorsListener = onValue(
-      sensorsRef,
-      (snapshot) => {
-        renderSensors(snapshot.val() || {});
-        setStatus('Realtime sensor stream active (view only available without login)', 'green');
-      },
-      (error) => {
-        console.error('Sensor stream error:', error);
-        const errorCode = error?.code || 'unknown-error';
-        if (errorCode === 'PERMISSION_DENIED') {
-          setStatus('Sensor read denied by Firebase Rules', '#e74c3c');
-        } else {
-          setStatus(`Sensor stream error (${errorCode})`, '#e74c3c');
+  <title>Watering Robot Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            earth: {
+              50: '#f8f8f3',
+              100: '#f2f0e6',
+              200: '#e8e3cf',
+              300: '#d5ccb0',
+              600: '#6f8065',
+              700: '#4f5f48'
+            }
+          },
+          boxShadow: {
+            soft: '0 8px 30px rgba(95, 109, 75, 0.10)'
+          }
         }
       }
-    );
-  }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      background:
+        radial-gradient(1200px 600px at 0% 0%, rgba(190, 217, 174, 0.35), transparent 60%),
+        radial-gradient(900px 520px at 100% 0%, rgba(236, 225, 198, 0.55), transparent 50%),
+        #f8f8f3;
+    }
 
-  function startControlsRealtimeListener() {
-    stopControlsRealtimeListener();
+    .title-font {
+      font-family: 'Quicksand', sans-serif;
+    }
 
-    stopControlsListener = onValue(
-      controlsRef,
-      (snapshot) => {
-        const controls = snapshot.val() || {};
-        console.log('controls updated:', controls);
-      },
-      (error) => {
-        console.error('Controls stream error:', error);
+    .glass-card {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .sensor-ring {
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    .ring-track {
+      stroke: #d9dfcf;
+    }
+
+    .ring-progress {
+      stroke: #22c55e;
+      transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+    }
+
+    .toggle-thumb {
+      transition: transform 0.25s ease;
+    }
+
+    .toggle-on .toggle-thumb {
+      transform: translateX(1.45rem);
+    }
+
+    @keyframes fan-spin {
+      from {
+        transform: rotate(0deg);
       }
-    );
-  }
-
-  async function handleLogin() {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error('Google sign-in failed:', error);
-      const errorCode = error?.code || 'unknown-error';
-      const currentHost = window.location.hostname;
-      if (errorCode === 'auth/unauthorized-domain') {
-        alert(`Google login failed: ${errorCode}\nAdd this domain in Firebase Console > Authentication > Settings > Authorized domains:\n${currentHost}`);
-      } else {
-        alert(`Google login failed: ${errorCode}`);
+      to {
+        transform: rotate(360deg);
       }
     }
-  }
 
-  async function handleLogout() {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Sign-out failed:', error);
-      alert('Logout failed. Please try again.');
+    @keyframes drop-bob {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(2px);
+      }
     }
-  }
 
-  loginButton.addEventListener('click', handleLogin);
-  logoutButton.addEventListener('click', handleLogout);
+    .animate-fan {
+      animation: fan-spin 0.8s linear infinite;
+    }
 
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      authUserEl.innerText = `Signed in: ${user.displayName || user.email}`;
-      loginButton.disabled = true;
+    .animate-drop {
+      animation: drop-bob 0.8s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-stone-700">
+  <main class="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+    <header class="glass-card rounded-2xl border border-white/60 px-4 py-4 shadow-soft sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="title-font text-2xl font-bold tracking-tight text-earth-700 sm:text-3xl">🌱 Watering Robot Monitor</h1>
+          <p class="text-sm text-stone-500">Plant-first telemetry and manual care controls</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="login-btn" class="rounded-xl bg-earth-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-earth-700">Google Login</button>
+
+          <div id="user-chip" class="hidden items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+            <span id="user-avatar" class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-200 text-sm font-bold text-emerald-900">U</span>
+            <span id="auth-user" class="max-w-[190px] truncate text-sm font-semibold text-emerald-900">Not signed in</span>
+          </div>
+
+          <button id="logout-btn" class="hidden rounded-xl bg-stone-200 px-3 py-2 text-sm font-bold text-stone-700 transition hover:bg-stone-300" disabled>Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
+      <article class="glass-card rounded-2xl border border-white/60 p-4 shadow-soft sm:p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-lg font-bold text-earth-700">Environment Sensors</h2>
+          <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700" id="sensor-health">Monitoring</span>
+        </div>
+
+        <div class="grid items-center gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr]">
+          <div class="order-2 grid gap-4 sm:order-1 lg:order-1">
+            <div class="rounded-xl border border-orange-100 bg-orange-50/70 p-4 shadow-sm">
+              <div class="mb-2 flex items-center justify-between text-sm text-orange-700">
+                <span class="font-semibold">🌡️ Temperature</span>
+                <span id="temp-status" class="rounded-full bg-white px-2 py-0.5 text-xs font-bold">--</span>
+              </div>
+              <div class="flex items-end gap-1">
+                <span id="temp" class="text-4xl font-extrabold leading-none text-orange-600">--</span>
+                <span class="pb-1 text-sm font-semibold text-orange-700">°C</span>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4 shadow-sm">
+              <div class="mb-2 flex items-center justify-between text-sm text-cyan-700">
+                <span class="font-semibold">💧 Humidity</span>
+                <span id="hum-status" class="rounded-full bg-white px-2 py-0.5 text-xs font-bold">--</span>
+              </div>
+              <div class="flex items-end gap-1">
+                <span id="hum" class="text-4xl font-extrabold leading-none text-cyan-600">--</span>
+                <span class="pb-1 text-sm font-semibold text-cyan-700">%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="order-1 mx-auto w-full max-w-[280px] rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-center shadow-md sm:order-2 lg:order-2">
+            <div class="mb-2 flex items-center justify-center gap-1 text-sm font-bold text-emerald-700">🌱 Soil Moisture</div>
+
+            <div class="relative mx-auto h-52 w-52">
+              <svg class="h-full w-full" viewBox="0 0 220 220" role="img" aria-label="Soil moisture gauge">
+                <circle class="sensor-ring ring-track" cx="110" cy="110" r="84" fill="none" stroke-width="18" />
+                <circle id="moisture-ring" class="sensor-ring ring-progress" cx="110" cy="110" r="84" fill="none" stroke-width="18" stroke-linecap="round" stroke-dasharray="527.79" stroke-dashoffset="527.79" />
+              </svg>
+              <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span id="moist" class="text-5xl font-extrabold leading-none text-emerald-700">--</span>
+                <span class="mt-1 text-sm font-semibold text-emerald-700">%</span>
+                <span id="moist-status" class="mt-2 rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="glass-card rounded-2xl border border-white/60 p-4 shadow-soft sm:p-5">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-bold text-earth-700">Manual Controls</h2>
+          <span class="rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-600">Auth Required</span>
+        </div>
+
+        <div class="space-y-4">
+          <div class="rounded-xl border border-stone-200 bg-white/80 p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between">
+              <div>
+                <p class="font-bold text-stone-700">Fan 1 (Cooling)</p>
+                <p class="text-xs text-stone-500">Room airflow stabilization</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="fan-icon" class="text-xl">🌀</span>
+                <span id="fan-state" class="rounded-full bg-stone-200 px-2 py-1 text-xs font-bold text-stone-600">OFF</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span id="fan-status" class="text-sm font-semibold text-stone-500">Stopped</span>
+              <button id="toggle-fan1" role="switch" aria-checked="false" class="requires-auth relative h-8 w-14 rounded-full bg-stone-300 p-1 transition-colors duration-300" disabled>
+                <span class="toggle-thumb block h-6 w-6 rounded-full bg-white shadow"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-stone-200 bg-white/80 p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between">
+              <div>
+                <p class="font-bold text-stone-700">Water Pump</p>
+                <p class="text-xs text-stone-500">Irrigation output control</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="pump-icon" class="text-xl">💧</span>
+                <span id="pump-state" class="rounded-full bg-stone-200 px-2 py-1 text-xs font-bold text-stone-600">OFF</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span id="pump-status" class="text-sm font-semibold text-stone-500">Stopped</span>
+              <button id="toggle-pump" role="switch" aria-checked="false" class="requires-auth relative h-8 w-14 rounded-full bg-stone-300 p-1 transition-colors duration-300" disabled>
+                <span class="toggle-thumb block h-6 w-6 rounded-full bg-white shadow"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <div class="pointer-events-none fixed bottom-3 right-3">
+    <div class="rounded-full border border-stone-200 bg-white/85 px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm" id="connection-status">Connecting...</div>
+  </div>
+
+  <script src="./firebase-config.js"></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      update
+    } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+
+    const firebaseConfig = window.__FIREBASE_CONFIG__ || {
+      apiKey: 'YOUR_API_KEY',
+      authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+      databaseURL: 'https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com',
+      projectId: 'YOUR_PROJECT_ID',
+      storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+      messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+      appId: 'YOUR_APP_ID'
+    };
+
+    if (!window.__FIREBASE_CONFIG__) {
+      console.warn('firebase-config.js is missing. Using placeholder Firebase config.');
+    }
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    const provider = new GoogleAuthProvider();
+    const devicePath = 'device_01';
+    const sensorsRef = ref(db, `${devicePath}/sensors`);
+    const controlsRef = ref(db, `${devicePath}/controls`);
+
+    const statusEl = document.getElementById('connection-status');
+    const authUserEl = document.getElementById('auth-user');
+    const userChipEl = document.getElementById('user-chip');
+    const userAvatarEl = document.getElementById('user-avatar');
+    const loginButton = document.getElementById('login-btn');
+    const logoutButton = document.getElementById('logout-btn');
+
+    const tempEl = document.getElementById('temp');
+    const humEl = document.getElementById('hum');
+    const moistEl = document.getElementById('moist');
+    const tempStatusEl = document.getElementById('temp-status');
+    const humStatusEl = document.getElementById('hum-status');
+    const moistStatusEl = document.getElementById('moist-status');
+    const healthEl = document.getElementById('sensor-health');
+    const moistureRingEl = document.getElementById('moisture-ring');
+
+    const fanToggleEl = document.getElementById('toggle-fan1');
+    const pumpToggleEl = document.getElementById('toggle-pump');
+    const fanStateEl = document.getElementById('fan-state');
+    const pumpStateEl = document.getElementById('pump-state');
+    const fanStatusEl = document.getElementById('fan-status');
+    const pumpStatusEl = document.getElementById('pump-status');
+    const fanIconEl = document.getElementById('fan-icon');
+    const pumpIconEl = document.getElementById('pump-icon');
+
+    const authRequiredButtons = document.querySelectorAll('.requires-auth');
+
+    const CIRCLE_CIRCUMFERENCE = 527.79;
+    const isUiMockMode = new URLSearchParams(window.location.search).get('mock') === '1';
+
+    let controlState = {
+      fan1: false,
+      pump: false
+    };
+
+    let stopSensorsListener = null;
+    let stopControlsListener = null;
+
+    function setStatus(message, tone = 'neutral') {
+      const toneClassMap = {
+        success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        danger: 'border-rose-200 bg-rose-50 text-rose-700',
+        warning: 'border-amber-200 bg-amber-50 text-amber-700',
+        neutral: 'border-stone-200 bg-white/85 text-stone-600'
+      };
+
+      statusEl.className = `rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm ${toneClassMap[tone] || toneClassMap.neutral}`;
+      statusEl.textContent = message;
+    }
+
+    function setControlsEnabled(enabled) {
+      authRequiredButtons.forEach((button) => {
+        button.disabled = !enabled;
+      });
+    }
+
+    function formatSensorValue(value) {
+      return (typeof value === 'number' && Number.isFinite(value)) ? value.toFixed(1) : '--';
+    }
+
+    function applyChipStyle(element, label, tone) {
+      const map = {
+        good: 'bg-emerald-100 text-emerald-700',
+        warning: 'bg-amber-100 text-amber-700',
+        danger: 'bg-rose-100 text-rose-700',
+        neutral: 'bg-stone-200 text-stone-600'
+      };
+
+      element.className = `rounded-full px-2 py-0.5 text-xs font-bold ${map[tone] || map.neutral}`;
+      element.textContent = label;
+    }
+
+    function classifyTemperature(value) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return { label: '--', tone: 'neutral', textColor: 'text-stone-400' };
+      }
+
+      if (value < 18) return { label: '低温注意', tone: 'warning', textColor: 'text-amber-600' };
+      if (value <= 30) return { label: '適正', tone: 'good', textColor: 'text-emerald-600' };
+      if (value <= 35) return { label: '高温注意', tone: 'warning', textColor: 'text-amber-600' };
+      return { label: '危険', tone: 'danger', textColor: 'text-rose-600' };
+    }
+
+    function classifyHumidity(value) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return { label: '--', tone: 'neutral', textColor: 'text-stone-400' };
+      }
+
+      if (value < 35) return { label: '乾燥注意', tone: 'warning', textColor: 'text-amber-600' };
+      if (value <= 70) return { label: '適正', tone: 'good', textColor: 'text-emerald-600' };
+      return { label: '高湿注意', tone: 'warning', textColor: 'text-amber-600' };
+    }
+
+    function classifyMoisture(value) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return { label: '--', tone: 'neutral', ringColor: '#a8a29e', textColor: 'text-stone-400' };
+      }
+
+      if (value < 35) return { label: '乾燥注意', tone: 'warning', ringColor: '#f59e0b', textColor: 'text-amber-600' };
+      if (value <= 70) return { label: '適正', tone: 'good', ringColor: '#22c55e', textColor: 'text-emerald-700' };
+      return { label: '過湿気味', tone: 'warning', ringColor: '#65a30d', textColor: 'text-lime-700' };
+    }
+
+    function renderMoistureGauge(value) {
+      const moistStatus = classifyMoisture(value);
+      const percent = (typeof value === 'number' && Number.isFinite(value))
+        ? Math.max(0, Math.min(100, value))
+        : 0;
+
+      const dashOffset = CIRCLE_CIRCUMFERENCE * (1 - (percent / 100));
+      moistureRingEl.style.strokeDashoffset = String(dashOffset);
+      moistureRingEl.style.stroke = moistStatus.ringColor;
+      moistEl.className = `text-5xl font-extrabold leading-none ${moistStatus.textColor}`;
+      applyChipStyle(moistStatusEl, moistStatus.label, moistStatus.tone);
+    }
+
+    function updateOverallSensorHealth(tempStatus, humStatus, moistStatus) {
+      const tones = [tempStatus.tone, humStatus.tone, moistStatus.tone];
+      if (tones.includes('danger')) {
+        applyChipStyle(healthEl, 'Critical', 'danger');
+        return;
+      }
+      if (tones.includes('warning')) {
+        applyChipStyle(healthEl, 'Needs Attention', 'warning');
+        return;
+      }
+      if (tones.every((tone) => tone === 'good')) {
+        applyChipStyle(healthEl, 'Good Condition', 'good');
+        return;
+      }
+      applyChipStyle(healthEl, 'Monitoring', 'neutral');
+    }
+
+    function renderSensors(data = {}) {
+      const tempValue = data.temperature;
+      const humValue = data.humidity;
+      const moistValue = data.soil_moisture;
+
+      tempEl.textContent = formatSensorValue(tempValue);
+      humEl.textContent = formatSensorValue(humValue);
+      moistEl.textContent = formatSensorValue(moistValue);
+
+      const tempStatus = classifyTemperature(tempValue);
+      const humStatus = classifyHumidity(humValue);
+      const moistStatus = classifyMoisture(moistValue);
+
+      tempEl.className = `text-4xl font-extrabold leading-none ${tempStatus.textColor}`;
+      humEl.className = `text-4xl font-extrabold leading-none ${humStatus.textColor}`;
+
+      applyChipStyle(tempStatusEl, tempStatus.label, tempStatus.tone);
+      applyChipStyle(humStatusEl, humStatus.label, humStatus.tone);
+      renderMoistureGauge(moistValue);
+      updateOverallSensorHealth(tempStatus, humStatus, moistStatus);
+    }
+
+    function updateAuthHeader(user) {
+      if (!user) {
+        loginButton.classList.remove('hidden');
+        logoutButton.classList.add('hidden');
+        logoutButton.disabled = true;
+        userChipEl.classList.add('hidden');
+        userChipEl.classList.remove('flex');
+        return;
+      }
+
+      const name = user.displayName || user.email || 'User';
+      const avatar = name.trim().charAt(0).toUpperCase();
+      authUserEl.textContent = name;
+      userAvatarEl.textContent = avatar;
+      loginButton.classList.add('hidden');
+      logoutButton.classList.remove('hidden');
       logoutButton.disabled = false;
-      setControlsEnabled(true);
-      startControlsRealtimeListener();
-      return;
+      userChipEl.classList.remove('hidden');
+      userChipEl.classList.add('flex');
     }
 
-    stopControlsRealtimeListener();
-    authUserEl.innerText = 'Not signed in';
-    loginButton.disabled = false;
-    logoutButton.disabled = true;
+    function applyToggleState(device, isOn) {
+      const isFan = device === 'fan1';
+      const toggleEl = isFan ? fanToggleEl : pumpToggleEl;
+      const stateEl = isFan ? fanStateEl : pumpStateEl;
+      const statusEl = isFan ? fanStatusEl : pumpStatusEl;
+      const iconEl = isFan ? fanIconEl : pumpIconEl;
+
+      controlState[device] = isOn;
+      toggleEl.setAttribute('aria-checked', String(isOn));
+      toggleEl.classList.toggle('toggle-on', isOn);
+      toggleEl.classList.toggle('bg-emerald-500', isOn);
+      toggleEl.classList.toggle('bg-stone-300', !isOn);
+
+      if (isOn) {
+        stateEl.textContent = 'ON';
+        stateEl.className = 'rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700';
+        statusEl.textContent = isFan ? 'Cooling active' : 'Watering active';
+        statusEl.className = 'text-sm font-semibold text-emerald-600';
+      } else {
+        stateEl.textContent = 'OFF';
+        stateEl.className = 'rounded-full bg-stone-200 px-2 py-1 text-xs font-bold text-stone-600';
+        statusEl.textContent = 'Stopped';
+        statusEl.className = 'text-sm font-semibold text-stone-500';
+      }
+
+      if (isFan) {
+        iconEl.classList.toggle('animate-fan', isOn);
+        iconEl.classList.toggle('text-emerald-600', isOn);
+      } else {
+        iconEl.classList.toggle('animate-drop', isOn);
+        iconEl.classList.toggle('text-emerald-600', isOn);
+      }
+    }
+
+    function stopSensorsRealtimeListener() {
+      if (typeof stopSensorsListener === 'function') {
+        stopSensorsListener();
+        stopSensorsListener = null;
+      }
+    }
+
+    function stopControlsRealtimeListener() {
+      if (typeof stopControlsListener === 'function') {
+        stopControlsListener();
+        stopControlsListener = null;
+      }
+    }
+
+    function startSensorsRealtimeListener() {
+      stopSensorsRealtimeListener();
+
+      stopSensorsListener = onValue(
+        sensorsRef,
+        (snapshot) => {
+          renderSensors(snapshot.val() || {});
+          setStatus('Realtime sensor stream active (guest view enabled)', 'success');
+        },
+        (error) => {
+          console.error('Sensor stream error:', error);
+          const errorCode = error?.code || 'unknown-error';
+          if (errorCode === 'PERMISSION_DENIED') {
+            setStatus('Sensor read denied by Firebase Rules', 'danger');
+          } else {
+            setStatus(`Sensor stream error (${errorCode})`, 'danger');
+          }
+        }
+      );
+    }
+
+    function startControlsRealtimeListener() {
+      stopControlsRealtimeListener();
+
+      stopControlsListener = onValue(
+        controlsRef,
+        (snapshot) => {
+          const controls = snapshot.val() || {};
+          applyToggleState('fan1', !!controls.is_ventilating);
+          applyToggleState('pump', !!controls.is_watering);
+        },
+        (error) => {
+          console.error('Controls stream error:', error);
+        }
+      );
+    }
+
+    async function handleLogin() {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error('Google sign-in failed:', error);
+        const errorCode = error?.code || 'unknown-error';
+        const currentHost = window.location.hostname;
+        if (errorCode === 'auth/unauthorized-domain') {
+          alert(`Google login failed: ${errorCode}\nAdd this domain in Firebase Console > Authentication > Settings > Authorized domains:\n${currentHost}`);
+        } else {
+          alert(`Google login failed: ${errorCode}`);
+        }
+      }
+    }
+
+    async function handleLogout() {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error('Sign-out failed:', error);
+        alert('Logout failed. Please try again.');
+      }
+    }
+
+    async function toggleDevice(device) {
+      const nextState = !controlState[device];
+      if (isUiMockMode) {
+        // Local UI mock mode for quick visual verification without DB writes.
+        applyToggleState(device, nextState);
+        setStatus(`Mock mode: ${device} set to ${nextState ? 'ON' : 'OFF'}`, 'warning');
+        return;
+      }
+
+      await window.control(device, nextState ? 'fullSpeed' : 'stop');
+    }
+
+    loginButton.addEventListener('click', handleLogin);
+    logoutButton.addEventListener('click', handleLogout);
+    fanToggleEl.addEventListener('click', () => toggleDevice('fan1'));
+    pumpToggleEl.addEventListener('click', () => toggleDevice('pump'));
+
+    onAuthStateChanged(auth, (user) => {
+      updateAuthHeader(user);
+
+      if (user) {
+        setControlsEnabled(true);
+        startControlsRealtimeListener();
+        setStatus('Signed in. Device controls are enabled.', 'success');
+        return;
+      }
+
+      stopControlsRealtimeListener();
+      setControlsEnabled(false);
+      applyToggleState('fan1', false);
+      applyToggleState('pump', false);
+      setStatus('Guest mode: sensor view only. Sign in to control devices.', 'neutral');
+    });
+
+    window.control = async function control(device, action) {
+      if (!auth.currentUser) {
+        alert('Login required to control devices.');
+        return;
+      }
+
+      const isOn = action === 'fullSpeed';
+      let payload = null;
+
+      if (device === 'pump') {
+        payload = { is_watering: isOn };
+      } else if (device === 'fan1') {
+        payload = { is_ventilating: isOn };
+      }
+
+      if (!payload) {
+        console.warn('Unsupported device/action:', device, action);
+        return;
+      }
+
+      try {
+        await update(controlsRef, payload);
+        setStatus(`Control updated: ${JSON.stringify(payload)}`, 'success');
+      } catch (error) {
+        console.error('Failed to update controls:', error);
+        setStatus('Failed to update controls', 'danger');
+      }
+    };
+
+    renderSensors();
+    applyToggleState('fan1', false);
+    applyToggleState('pump', false);
+    startSensorsRealtimeListener();
     setControlsEnabled(false);
-    setStatus('Guest mode: sensor view only. Sign in to control devices.', '#888');
-  });
+    setStatus(
+      isUiMockMode
+        ? 'Mock mode enabled. UI states are running locally without DB writes.'
+        : 'Checking authentication... Sensor view is available without login.',
+      isUiMockMode ? 'warning' : 'neutral'
+    );
 
-  // Step 2: Write control states to /device_01/controls.
-  window.control = async function control(device, action) {
-    if (!auth.currentUser) {
-      alert('Login required to control devices.');
-      return;
+    if (isUiMockMode) {
+      setInterval(() => {
+        renderSensors({
+          temperature: 16 + Math.random() * 18,
+          humidity: 30 + Math.random() * 50,
+          soil_moisture: 20 + Math.random() * 65
+        });
+      }, 3500);
     }
-
-    const isOn = action === 'fullSpeed';
-    let payload = null;
-
-    if (device === 'pump') {
-      payload = { is_watering: isOn };
-    } else if (device === 'fan1') {
-      payload = { is_ventilating: isOn };
-    }
-
-    if (!payload) {
-      console.warn('Unsupported device/action:', device, action);
-      return;
-    }
-
-    try {
-      await update(controlsRef, payload);
-      setStatus(`Control updated: ${JSON.stringify(payload)}`, '#2ecc71');
-    } catch (error) {
-      console.error('Failed to update controls:', error);
-      setStatus('Failed to update controls', '#e74c3c');
-    }
-  };
-
-  renderSensors();
-  startSensorsRealtimeListener();
-  setControlsEnabled(false);
-  setStatus('Checking authentication... Sensor view is available without login.', '#666');
-</script>
+  </script>
 </body>
 </html>
