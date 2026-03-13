@@ -173,7 +173,7 @@
       <article class="glass-card rounded-2xl border border-white/60 p-4 shadow-soft sm:p-5">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-lg font-bold text-earth-700">Manual Controls</h2>
-          <span class="rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-600">Auth Required</span>
+          <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Ready</span>
         </div>
 
         <div class="space-y-4">
@@ -190,7 +190,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span id="fan-status" class="text-sm font-semibold text-stone-500">Stopped</span>
-              <button id="toggle-fan1" role="switch" aria-checked="false" class="requires-auth relative h-8 w-14 rounded-full bg-stone-300 p-1 transition-colors duration-300" disabled>
+              <button id="toggle-fan1" role="switch" aria-checked="false" class="relative h-8 w-14 rounded-full bg-stone-300 p-1 transition-colors duration-300">
                 <span class="toggle-thumb block h-6 w-6 rounded-full bg-white shadow"></span>
               </button>
             </div>
@@ -209,7 +209,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span id="pump-status" class="text-sm font-semibold text-stone-500">Stopped</span>
-              <button id="toggle-pump" role="switch" aria-checked="false" class="requires-auth relative h-8 w-14 rounded-full bg-stone-300 p-1 transition-colors duration-300" disabled>
+              <button id="toggle-pump" role="switch" aria-checked="false" class="relative h-8 w-14 rounded-full bg-stone-300 p-1 transition-colors duration-300">
                 <span class="toggle-thumb block h-6 w-6 rounded-full bg-white shadow"></span>
               </button>
             </div>
@@ -287,8 +287,6 @@
     const fanIconEl = document.getElementById('fan-icon');
     const pumpIconEl = document.getElementById('pump-icon');
 
-    const authRequiredButtons = document.querySelectorAll('.requires-auth');
-
     const CIRCLE_CIRCUMFERENCE = 527.79;
     const isUiMockMode = new URLSearchParams(window.location.search).get('mock') === '1';
 
@@ -312,10 +310,9 @@
       statusEl.textContent = message;
     }
 
-    function setControlsEnabled(enabled) {
-      authRequiredButtons.forEach((button) => {
-        button.disabled = !enabled;
-      });
+    function setControlsEnabled() {
+      fanToggleEl.disabled = false;
+      pumpToggleEl.disabled = false;
     }
 
     function formatSensorValue(value) {
@@ -339,10 +336,10 @@
         return { label: '--', tone: 'neutral', textColor: 'text-stone-400' };
       }
 
-      if (value < 18) return { label: '低温注意', tone: 'warning', textColor: 'text-amber-600' };
-      if (value <= 30) return { label: '適正', tone: 'good', textColor: 'text-emerald-600' };
-      if (value <= 35) return { label: '高温注意', tone: 'warning', textColor: 'text-amber-600' };
-      return { label: '危険', tone: 'danger', textColor: 'text-rose-600' };
+      if (value < 18) return { label: 'TOO LOW', tone: 'warning', textColor: 'text-amber-600' };
+      if (value <= 30) return { label: 'OK', tone: 'good', textColor: 'text-emerald-600' };
+      if (value <= 35) return { label: 'TOO HIGH', tone: 'warning', textColor: 'text-amber-600' };
+      return { label: 'DANGER', tone: 'danger', textColor: 'text-rose-600' };
     }
 
     function classifyHumidity(value) {
@@ -350,9 +347,9 @@
         return { label: '--', tone: 'neutral', textColor: 'text-stone-400' };
       }
 
-      if (value < 35) return { label: '乾燥注意', tone: 'warning', textColor: 'text-amber-600' };
-      if (value <= 70) return { label: '適正', tone: 'good', textColor: 'text-emerald-600' };
-      return { label: '高湿注意', tone: 'warning', textColor: 'text-amber-600' };
+      if (value < 35) return { label: 'TOO DRY', tone: 'warning', textColor: 'text-amber-600' };
+      if (value <= 70) return { label: 'OPTIMAL', tone: 'good', textColor: 'text-emerald-600' };
+      return { label: 'TOO HUMID', tone: 'warning', textColor: 'text-amber-600' };
     }
 
     function classifyMoisture(value) {
@@ -360,9 +357,9 @@
         return { label: '--', tone: 'neutral', ringColor: '#a8a29e', textColor: 'text-stone-400' };
       }
 
-      if (value < 35) return { label: '乾燥注意', tone: 'warning', ringColor: '#f59e0b', textColor: 'text-amber-600' };
-      if (value <= 70) return { label: '適正', tone: 'good', ringColor: '#22c55e', textColor: 'text-emerald-700' };
-      return { label: '過湿気味', tone: 'warning', ringColor: '#65a30d', textColor: 'text-lime-700' };
+      if (value < 35) return { label: 'TOO DRY', tone: 'warning', ringColor: '#f59e0b', textColor: 'text-amber-600' };
+      if (value <= 70) return { label: 'OPTIMAL', tone: 'good', ringColor: '#22c55e', textColor: 'text-emerald-700' };
+      return { label: 'TOO HUMID', tone: 'warning', ringColor: '#65a30d', textColor: 'text-lime-700' };
     }
 
     function renderMoistureGauge(value) {
@@ -566,27 +563,18 @@
 
     onAuthStateChanged(auth, (user) => {
       updateAuthHeader(user);
+      setControlsEnabled();
+      startControlsRealtimeListener();
 
       if (user) {
-        setControlsEnabled(true);
-        startControlsRealtimeListener();
         setStatus('Signed in. Device controls are enabled.', 'success');
         return;
       }
 
-      stopControlsRealtimeListener();
-      setControlsEnabled(false);
-      applyToggleState('fan1', false);
-      applyToggleState('pump', false);
-      setStatus('Guest mode: sensor view only. Sign in to control devices.', 'neutral');
+      setStatus('Guest mode: controls enabled (subject to Firebase Rules).', 'warning');
     });
 
     window.control = async function control(device, action) {
-      if (!auth.currentUser) {
-        alert('Login required to control devices.');
-        return;
-      }
-
       const isOn = action === 'fullSpeed';
       let payload = null;
 
@@ -614,7 +602,7 @@
     applyToggleState('fan1', false);
     applyToggleState('pump', false);
     startSensorsRealtimeListener();
-    setControlsEnabled(false);
+    setControlsEnabled();
     setStatus(
       isUiMockMode
         ? 'Mock mode enabled. UI states are running locally without DB writes.'
